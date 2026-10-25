@@ -1,8 +1,8 @@
 "use strict";
 
-import { squareTopology, hexTopology, triangleTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
+import { squareTopology, hexTopology, triangleTopology, polarTopology, polarRingSizes, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
-import { directionsAt, pickDirection, keyCommand, DirectionPad } from './input/index.js';
+import { directionsAt, chooseDirection, keyCommand, DirectionPad } from './input/index.js';
 
 function CalculateVh()
 {
@@ -210,14 +210,22 @@ const MIN_SIZE = 2;
 const MAX_SIZE = 50;
 
 // Shapes the settings offer. `topology(cols, rows)` builds the grid for a
-// maze `cols` units wide and `rows` high; `cells` is the number of cells in
-// one unit. A size n square or hex maze has n columns and n rows of cells. A
-// triangle maze has two triangles (one up, one down) per unit, so a size n
-// maze is n rows of 2n triangles and about as wide as it is tall.
+// maze `cols` units wide and `rows` high; `cells(cols, rows)` is the number of
+// cells it would have, worked out without building it. A size n square or hex
+// maze has n columns and n rows of cells. A triangle maze has two triangles
+// (one up, one down) per unit, so a size n maze is n rows of 2n triangles and
+// about as wide as it is tall. A size n circle has n rings around its centre
+// (`cols`; a circle has no separate height).
 const SHAPES = Object.freeze({
-  square: Object.freeze({ cells: 1, topology: squareTopology }),
-  hex: Object.freeze({ cells: 1, topology: hexTopology }),
-  triangle: Object.freeze({ cells: 2, topology: (cols, rows) => triangleTopology(2 * cols, rows) }),
+  square: Object.freeze({ cells: (cols, rows) => cols * rows, topology: squareTopology }),
+  hex: Object.freeze({ cells: (cols, rows) => cols * rows, topology: hexTopology }),
+  triangle: Object.freeze({ cells: (cols, rows) => 2 * cols * rows, topology: (cols, rows) => triangleTopology(2 * cols, rows) }),
+  // Every ring has at least one cell, so more rings than MAX_CELLS are over
+  // the limit without adding them up.
+  polar: Object.freeze({
+    cells: (rings) => (rings > MAX_CELLS ? Infinity : polarRingSizes(rings).reduce((sum, n) => sum + n, 0)),
+    topology: (rings) => polarTopology(rings),
+  }),
 });
 
 let width, height, autoNew, increment, factor;
@@ -354,7 +362,7 @@ function StartMaze(cols, rows, nextShape = shape)
     if(!Number.isInteger(side) || side < 1) throw new RangeError(`maze size ${cols}x${rows} is not positive whole numbers`);
   }
   const { cells, topology: build } = SHAPES[nextShape];
-  if(cols * rows * cells > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
+  if(cells(cols, rows) > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
   const nextTopology = build(cols, rows);
   const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
   topology = nextTopology;
@@ -428,7 +436,9 @@ function FitCanvas()
 // direction; the adapter turns it into the open passage that way, if any. On a
 // square grid each key takes exactly its own direction. Hex grids add Q and E
 // and the numeric keypad for their six sides (see HEX_KEYS). On triangle grids
-// each key takes only the side it names (see keyCommand).
+// each key takes only the side it names (see keyCommand). On circles the keys
+// go in, out and round the ring instead, with 1-9 for one of several outward
+// passages (see POLAR_KEYS).
 
 document.onkeydown = function(event)
 {
@@ -440,7 +450,7 @@ document.onkeydown = function(event)
   if(command === undefined) return;
   event.preventDefault();
   if(maze === null || player.moving) return;
-  const label = pickDirection(directionsAt(maze, geometry, player.cell), command.angle, { tolerance: command.tolerance });
+  const label = chooseDirection(directionsAt(maze, geometry, player.cell), command);
   if(label !== null) player.Move(label);
 }
 

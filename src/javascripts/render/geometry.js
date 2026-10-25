@@ -112,46 +112,55 @@ export function triangleGeometry(topology)
 // Polar grid centred on the origin. Ring k lies between radius k and k + 1, so
 // the centre cell is a unit disc. Cell i of a ring with n cells spans the angles
 // [i, i + 1] * 2π / n, clockwise from the positive x axis.
+//
+// Corners are computed from the fraction of a turn, i / n, wrapped to [0, 1).
+// Dividing whole numbers rounds the same way for i / n and (i·m) / (n·m), so a
+// corner shared by an inner cell and the outer cells it splits into, or by the
+// last and first cells of a ring, is exactly the same point from either side.
 export function polarGeometry(topology)
 {
+  const TAU = 2 * Math.PI;
   const sizes = topology.ringSizes;
+  // The cell's ring and its span as whole steps [first, last] of the ring's n.
   const span = (cell) =>
   {
     const { ring, index } = topology.coordsOf(cell);
-    const step = (2 * Math.PI) / sizes[ring];
-    return { ring, from: index * step, to: (index + 1) * step };
+    return { ring, first: index, last: index + 1, n: sizes[ring] };
   };
-  // An arc as a polyline, with enough points to look round at any radius.
-  const arc = (radius, from, to) =>
+  const at = (radius, turn) => point(radius * Math.cos(TAU * turn), radius * Math.sin(TAU * turn));
+  // An arc from step `first` to step `last` of `n`, as a polyline with enough
+  // points to look round at any radius.
+  const arc = (radius, { first, last, n }) =>
   {
-    const segments = Math.max(2, Math.ceil((to - from) * radius * 4));
+    const from = first / n;
+    const to = (last % n) / n;
+    const segments = Math.max(2, Math.ceil(((last - first) / n) * TAU * radius * 4));
     return Array.from({ length: segments + 1 }, (_, k) =>
     {
-      const a = from + ((to - from) * k) / segments;
-      return point(radius * Math.cos(a), radius * Math.sin(a));
+      if(k === 0) return at(radius, from);
+      if(k === segments) return at(radius, to);
+      return at(radius, from + ((last - first) / n) * (k / segments));
     });
   };
-  const ray = (angle, inner, outer) => [
-    point(inner * Math.cos(angle), inner * Math.sin(angle)),
-    point(outer * Math.cos(angle), outer * Math.sin(angle)),
-  ];
+  const ray = (step, n, inner, outer) => [at(inner, (step % n) / n), at(outer, (step % n) / n)];
   const side = (neighbour, points) => Object.freeze({ neighbour, points: Object.freeze(points) });
 
   const walls = cached(topology, (cell) =>
   {
-    const { ring, from, to } = span(cell);
+    const s = span(cell);
+    const { ring } = s;
     const list = [];
     if(ring > 0)
     {
-      list.push(side(topology.neighbourByLabel(cell, 'CCW'), ray(from, ring, ring + 1)));
-      list.push(side(topology.neighbourByLabel(cell, 'IN'), arc(ring, from, to)));
-      list.push(side(topology.neighbourByLabel(cell, 'CW'), ray(to, ring, ring + 1)));
+      list.push(side(topology.neighbourByLabel(cell, 'CCW'), ray(s.first, s.n, ring, ring + 1)));
+      list.push(side(topology.neighbourByLabel(cell, 'IN'), arc(ring, s)));
+      list.push(side(topology.neighbourByLabel(cell, 'CW'), ray(s.last, s.n, ring, ring + 1)));
     }
-    // The outer side: one piece per outward neighbour, or the outer edge.
+    // The outer side: one piece per outward neighbour, each the same arc as
+    // that neighbour's inner side, or the outer edge.
     const outward = topology.links(cell).filter((n) => n.label.startsWith('OUT'));
-    if(outward.length === 0) list.push(side(null, arc(ring + 1, from, to)));
-    const part = (to - from) / outward.length;
-    outward.forEach(({ cell: n }, k) => list.push(side(n, arc(ring + 1, from + k * part, from + (k + 1) * part))));
+    if(outward.length === 0) list.push(side(null, arc(ring + 1, s)));
+    for(const { cell: n } of outward) list.push(side(n, arc(ring + 1, span(n))));
     return list;
   });
 
@@ -161,17 +170,16 @@ export function polarGeometry(topology)
     bounds: Object.freeze({ minX: -R, minY: -R, maxX: R, maxY: R }),
     centre: (cell) =>
     {
-      const { ring, from, to } = span(cell);
+      const { ring, first, last, n } = span(cell);
       if(ring === 0) return point(0, 0);
-      const a = (from + to) / 2;
-      return point((ring + 0.5) * Math.cos(a), (ring + 0.5) * Math.sin(a));
+      return at(ring + 0.5, (first + last) / (2 * n));
     },
     outline: cached(topology, (cell) =>
     {
-      const { ring, from, to } = span(cell);
-      const outer = arc(ring + 1, from, to);
-      if(ring === 0) return outer.slice(0, -1);
-      return [...outer, ...arc(ring, from, to).reverse()];
+      const s = span(cell);
+      const outer = arc(s.ring + 1, s);
+      if(s.ring === 0) return outer.slice(0, -1);
+      return [...outer, ...arc(s.ring, s).reverse()];
     }),
     walls,
   };

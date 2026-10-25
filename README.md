@@ -18,3 +18,4 @@ CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/controls.md` describes the input adapter and SVG direction pad in `src/javascripts/input/`.
 `docs/hex.md` describes hexagonal mazes.
 `docs/triangle.md` describes triangular mazes.
+`docs/polar.md` describes circular (polar) mazes.

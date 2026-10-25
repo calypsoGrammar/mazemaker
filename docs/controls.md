@@ -23,16 +23,18 @@ a fixed order, so the pad buttons stay in place. A direction off the edge has
 `cell: null` and is closed. Triangles (CAL-1241) have one set for each
 orientation (`TRIANGLE_FRAMES`): `LEFT`, `RIGHT` and `DOWN` for a cell
 pointing up, `LEFT`, `RIGHT` and `UP` for a cell pointing down, always all
-three. Polar cells list only their own neighbours, so their set changes from
-cell to cell. A polar cell can have several outward passages.
+three. Polar cells (CAL-1242) list only their own neighbours, so their set
+changes from cell to cell. A polar cell can have several outward passages.
 
 ## Keyboard
 
-`keyCommand(key, kind)` turns a key into `{ angle, tolerance }` for the grid
-in play. `pickDirection` picks the open direction nearest that angle, within
-the tolerance. If two open directions are equally near, it picks nothing.
+`keyCommand(key, kind)` turns a key into a command for the grid in play, and
+`chooseDirection(directions, command)` applies it. Most commands are
+`{ angle, tolerance }`: `pickDirection` picks the open direction nearest that
+angle, within the tolerance. If two open directions are equally near, it
+picks nothing. Polar commands are `{ match }` instead (see below).
 
-On square (and polar) grids, the arrow keys and WASD, in either
+On square grids, the arrow keys and WASD, in either
 case, name an angle (`keyAngle`) with `DEFAULT_TOLERANCE` (60°). On a square
 grid every other direction is 90° away, so each key only moves its own way,
 as before.
@@ -60,6 +62,23 @@ moves through its own side only, never through the side next to it:
 over `1 2 3` on the numeric keypad (Home, PageUp, End, PageDown with Num Lock
 off). Left and Right fall between two diagonals, at 60° tolerance. They move
 only when exactly one of the two is open.
+
+On polar grids (CAL-1242) the keys name a way along the rings, not a screen
+angle (`POLAR_KEYS`). A cell's directions turn as the player goes round, and
+at 45° around the circle a screen-angle key would fall exactly between two
+directions. A `{ match }` command takes the one open direction whose label it
+matches, and nothing when none or several match:
+
+| Direction | Keys |
+|---|---|
+| `OUT…` (outward) | `W`, Up: only when exactly one outward passage is open |
+| `OUT0` … `OUT8` | `1` … `9`: outward passage 1 to 9, numbered clockwise |
+| `IN` (inward) | `S`, Down |
+| `CCW` (anticlockwise) | `A`, Left |
+| `CW` (clockwise) | `D`, Right |
+
+So where a cell opens onto two outward cells, Up does nothing and `1` and `2`
+take one each; the game never picks between them.
 
 ## Pad
 

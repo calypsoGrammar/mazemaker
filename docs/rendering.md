@@ -28,7 +28,10 @@ state calls `Draw()`, which passes them to the renderer as a scene.
 Every topology neighbour has exactly one side, and both cells give the same
 points for it. The y axis points down. Square cells are unit squares at
 (column, row). Hexagons and triangles have unit sides. Polar ring *k* lies
-between radius *k* and *k* + 1 around the origin. A new topology adds a
+between radius *k* and *k* + 1 around the origin. Its corners come from
+whole-number fractions of a turn, so sides shared across a ring split, or
+across the 0° spoke, are exactly the same points from both cells
+(`docs/polar.md`). A new topology adds a
 factory to `geometries`.
 
 ## Renderer
