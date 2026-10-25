@@ -100,7 +100,7 @@ change, calls `renderer.setView` and redraws. Gestures never call
 pans. The canvas has `touch-action: none` so the page does not scroll or zoom
 under a gesture.
 
-The **Fit maze to screen** button (`fitLight.svg`, at the end of the header)
+The **Fit maze to screen** button (four corners, in the toolbar; `docs/interface.md`)
 sets zoom 1 and no pan: the maze is centred and fitted. A new maze also starts
 fitted. Restart keeps the view. Resizing keeps the zoom and brings the pan
 within the new limits. None of these change the maze, the player or the route.

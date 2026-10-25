@@ -1,6 +1,6 @@
 "use strict";
 
-import { squareTopology, hexTopology, triangleTopology, polarTopology, polarRingSizes, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
+import { squareTopology, hexTopology, triangleTopology, polarTopology, polarRingSizes, growingTree, STRATEGIES, DEFAULT_STRATEGY, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
 import { directionsAt, chooseDirection, keyCommand, DirectionPad } from './input/index.js';
 
@@ -169,12 +169,13 @@ settingsMenu.style.display = 'none';
 const OptionsButton = document.getElementById("OptionsButton");
 OptionsButton.onclick = function () { ToggleSettings(); };
 const SearchButton = document.getElementById("SearchButton");
-SearchButton.onclick = function () { Find(); };
+SearchButton.onclick = function () { ToggleRoute(); };
 
 // CUSTOM MENU INPUT
 
 const display001 = document.getElementById("display001");
 const mazeShape = document.getElementById("mazeShape");
+const mazeMode = document.getElementById("mazeMode");
 const sizeError = document.getElementById("sizeError");
 sizeError.style.display = 'none';
 
@@ -231,6 +232,8 @@ const SHAPES = Object.freeze({
 let width, height, autoNew, increment, factor;
 // The shape in play, a key of SHAPES. New maze and Auto-increment keep it.
 let shape = 'square';
+// The generator mode in play, a key of STRATEGIES. New maze and Auto-new keep it.
+let strategy = DEFAULT_STRATEGY;
 // topology: the cells and their neighbours. maze: the passages carved through it.
 // geometry: where the topology's cells are drawn.
 let topology = null;
@@ -261,10 +264,12 @@ function SetSettingsOpen(open)
   {
     display001.value = width;
     mazeShape.value = shape;
+    mazeMode.value = strategy;
     sizeError.style.display = 'none';
     settingsMenu.style.display = '';
   }
   else settingsMenu.style.display = 'none';
+  OptionsButton.setAttribute('aria-expanded', String(toggleS));
 }
 
 // MAZE CODE
@@ -276,6 +281,7 @@ function DefaultSettings()
   display001.max = MAX_SIZE;
   display001.step = 1;
   mazeShape.value = 'square';
+  mazeMode.value = DEFAULT_STRATEGY;
 
   FitCanvas();
 
@@ -303,7 +309,7 @@ function ParseSize(text)
   return size >= MIN_SIZE && size <= MAX_SIZE ? size : null;
 }
 
-// Generate: applies the typed size, the shape and the toggles, closes the panel and makes
+// Generate: applies the typed size, the shape, the mode and the toggles, closes the panel and makes
 // a new maze. An invalid size changes nothing and leaves the panel open with
 // a message.
 function GenerateCustomMaze()
@@ -315,9 +321,10 @@ function GenerateCustomMaze()
     return;
   }
   const nextShape = Object.hasOwn(SHAPES, mazeShape.value) ? mazeShape.value : shape;
+  const nextStrategy = Object.hasOwn(STRATEGIES, mazeMode.value) ? mazeMode.value : strategy;
   ReadToggles();
   SetSettingsOpen(false);
-  StartMaze(size, size, nextShape);
+  StartMaze(size, size, nextShape, nextStrategy);
 }
 
 // A new layout at the size in play.
@@ -332,8 +339,7 @@ function Restart()
   if(maze === null) return;
   player.Stop();
   player.cell = 0;
-  route = [];
-  showRoute = false;
+  SetRouteShown(false);
   ClearCompletion();
   Draw();
 }
@@ -349,11 +355,13 @@ function ClearCompletion()
   completeBanner.style.display = 'none';
 }
 
-// Makes a new cols x rows maze of `nextShape` (a key of SHAPES). The UI only
-// asks for MIN_SIZE to MAX_SIZE on a side; any other positive size works too.
-function StartMaze(cols, rows, nextShape = shape)
+// Makes a new cols x rows maze of `nextShape` (a key of SHAPES), carved in
+// generator mode `nextStrategy` (a key of STRATEGIES). The UI only asks for
+// MIN_SIZE to MAX_SIZE on a side; any other positive size works too.
+function StartMaze(cols, rows, nextShape = shape, nextStrategy = strategy)
 {
   if(!Object.hasOwn(SHAPES, nextShape)) throw new RangeError(`unknown maze shape ${nextShape}`);
+  if(!Object.hasOwn(STRATEGIES, nextStrategy)) throw new RangeError(`unknown generator mode ${nextStrategy}`);
   // Throws a RangeError for a size that is not a positive whole number or has
   // more than MAX_CELLS cells, before any state changes, so the previous maze
   // stays in play.
@@ -364,16 +372,16 @@ function StartMaze(cols, rows, nextShape = shape)
   const { cells, topology: build } = SHAPES[nextShape];
   if(cells(cols, rows) > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
   const nextTopology = build(cols, rows);
-  const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
+  const nextMaze = growingTree(nextTopology, { strategy: nextStrategy, random: () => Math.random() }).maze;
   topology = nextTopology;
   shape = nextShape;
+  strategy = nextStrategy;
   width = cols;
   height = rows;
   maze = nextMaze;
   geometry = geometryFor(topology);
   exitCell = topology.size - 1;
-  route = [];
-  showRoute = false;
+  SetRouteShown(false);
   player.Stop();
   player.cell = 0;
   ClearCompletion();
@@ -445,6 +453,13 @@ document.onkeydown = function(event)
   // Leave shortcuts (Ctrl+W, Cmd+D, ...) to the browser, and keys to the
   // settings panel while it covers the maze.
   if(event.ctrlKey || event.metaKey || event.altKey) return;
+  // Escape closes the settings panel without applying it.
+  if(toggleS && event.key === 'Escape')
+  {
+    SetSettingsOpen(false);
+    OptionsButton.focus();
+    return;
+  }
   if(toggleS) return;
   const command = keyCommand(event.key, shape);
   if(command === undefined) return;
@@ -459,6 +474,7 @@ document.onkeydown = function(event)
 function HidePad()
 {
   hideT = !hideT;
+  ControllerButton.setAttribute('aria-pressed', String(!hideT));
   if(hideT)
   {
     footerControls.style.display = "none";
@@ -515,11 +531,27 @@ function FlipPad()
 
 // SEARCH
 
+// Shows the route from the player to the exit and keeps it up to date.
 function Find()
 {
-  showRoute = true;
-  UpdateRoute();
+  SetRouteShown(true);
   Draw();
+}
+
+// The route button shows the route, or hides it when it is shown.
+function ToggleRoute()
+{
+  if(maze === null) return;
+  SetRouteShown(!showRoute);
+  Draw();
+}
+
+function SetRouteShown(shown)
+{
+  showRoute = shown;
+  route = [];
+  UpdateRoute();
+  SearchButton.setAttribute('aria-pressed', String(showRoute));
 }
 
 // Recomputes the shown route from the player's current cell. An unreachable

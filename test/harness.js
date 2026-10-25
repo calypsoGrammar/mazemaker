@@ -35,6 +35,7 @@ window.__mm = {
   get width() { return width; },
   get height() { return height; },
   get shape() { return shape; },
+  get strategy() { return strategy; },
   get autoNew() { return autoNew; },
   get increment() { return increment; },
   get hideT() { return hideT; },

@@ -187,7 +187,7 @@ test('desktop: Fit maze to screen centres and fits the maze; a new maze starts f
   const before = snapshot(g);
   const button = g.document.getElementById('ResetViewButton');
   assert.equal(button.getAttribute('aria-label'), 'Fit maze to screen');
-  assert.match(button.querySelector('img').getAttribute('src'), /\.svg$/);
+  assert.ok(button.querySelector('svg'), 'an inline SVG icon');
   g.click('ResetViewButton');
   const v = g.state.renderer.viewport;
   assert.deepEqual([v.zoom, v.panX, v.panY], [1, 0, 0]);

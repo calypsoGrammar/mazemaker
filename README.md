@@ -19,3 +19,4 @@ CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/hex.md` describes hexagonal mazes.
 `docs/triangle.md` describes triangular mazes.
 `docs/polar.md` describes circular (polar) mazes.
+`docs/interface.md` describes the toolbar, settings and colours.
