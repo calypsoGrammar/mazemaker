@@ -1,6 +1,6 @@
 "use strict";
 
-import { squareTopology, growingTree, shortestPath } from './maze/index.js';
+import { squareTopology, growingTree, shortestPath, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer } from './render/index.js';
 
 function CalculateVh()
@@ -181,12 +181,16 @@ function NewMaze()
 	autoNew = aNew.checked;
 	increment = aIncrement.checked;
 
-  // Throws a RangeError for a size that is not a positive whole number, before
-  // any state changes, so the previous maze stays in play.
-  topology = squareTopology(cols, rows);
+  // Throws a RangeError for a size that is not a positive whole number or has
+  // more than MAX_CELLS cells, before any state changes, so the previous maze
+  // stays in play.
+  if(cols * rows > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
+  const nextTopology = squareTopology(cols, rows);
+  const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
+  topology = nextTopology;
   width = cols;
   height = rows;
-  maze = growingTree(topology, { random: () => Math.random() }).maze;
+  maze = nextMaze;
   geometry = geometryFor(topology);
   exitCell = topology.size - 1;
   route = [];

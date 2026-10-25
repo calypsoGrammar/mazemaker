@@ -9,7 +9,7 @@ the square game, and keeps input and the player. Drawing is in
 |---|---|---|
 | Topology | `maze/topology.js` | Which cells exist and which are neighbours. |
 | Passages | `maze/maze.js` (`Maze`) | Which neighbouring cells are joined. Any other pair is walled. |
-| Generation | `maze/generate.js` (`growingTree`) | Cell IDs and neighbour lists only. |
+| Generation | `maze/generate.js` (`growingTree`, strategies) | Cell IDs and neighbour lists only. |
 | Navigation | `maze/navigate.js` (`shortestPath`, `reachable`, `isPerfect`) | Traversable neighbours only. |
 | Rendering | `render/` (see `docs/rendering.md`) | Cell shapes for each topology, the viewport and the Canvas 2D renderer. |
 | Input | `main.js` | The key → direction mapping. |
@@ -56,6 +56,42 @@ number.
 - `passages()` lists every passage once, as `[a, b]` with `a < b`.
 - `consistencyErrors()` checks the stored data and returns its problems. It
   is used by the tests.
+
+## Generation strategies (CAL-1233 / MM-V1-04)
+
+`growingTree(topology, { strategy, seed, random, maxCells })` keeps a list of
+active cells, oldest first. Each step takes one of them, opens a passage to a
+random unvisited neighbour, or retires the cell when it has none. The
+strategy decides which active cell is taken:
+
+| `strategy` | Takes | Mazes |
+|---|---|---|
+| `'newest'` | the cell added last (depth-first) | long winding corridors, few dead ends |
+| `'oldest'` | the cell added first (breadth-first) | short straight passages fanning out from the start |
+| `'random'` | any active cell | many short dead ends, like Prim's algorithm |
+| `'mixed'` (default) | newest, oldest or random, in proportions drawn once per maze | the game's original mode, unchanged |
+
+Every mode makes a perfect maze (a spanning tree), on every topology.
+`STRATEGY_NAMES` lists the modes. A strategy object is `{ name, create(random) }`,
+where `create` returns `select(length)`, which gives an index into the
+active list. `resolveStrategy(name)` looks one up and throws a `RangeError` for
+an unknown name.
+
+- **Seeds.** `seed` (an integer) makes generation deterministic: the same
+  topology, strategy and seed always give the same maze. `seededRandom(seed)`
+  is the generator it uses (mulberry32). Without a seed, `random` is used,
+  defaulting to `Math.random`. Mixed mode draws random numbers in the same
+  order as before, so its mazes for a given random sequence have not changed.
+- **Bounded work.** Generation takes exactly `2 · cells − 1` steps and at most
+  three random numbers per step. A topology with more than `maxCells` cells
+  (default `MAX_CELLS`, 250 000, about half a second in Node) is rejected with a
+  `RangeError` before any work. A strategy that selects an index outside the
+  active list, or runs past the step count, throws instead of looping. The game
+  checks the size against `MAX_CELLS` before it builds the grid, so a large
+  size typed into the size field keeps the current maze rather than freezing
+  the page.
+
+The game still uses `'mixed'`; there is no control for choosing a mode yet.
 
 ## Shortest path (CAL-1234 / MM-V1-05)
 
