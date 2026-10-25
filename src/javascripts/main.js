@@ -1,7 +1,7 @@
 "use strict";
 
 import { squareTopology, hexTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
-import { geometryFor, CanvasRenderer } from './render/index.js';
+import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
 import { directionsAt, pickDirection, keyCommand, DirectionPad } from './input/index.js';
 
 function CalculateVh()
@@ -135,6 +135,11 @@ ResetButton.onclick = function () { Restart(); };
 const NewMazeButton = document.getElementById("NewMazeButton");
 NewMazeButton.onclick = function () { NewMaze(); };
 
+// FIT THE MAZE TO THE SCREEN AGAIN AFTER PANNING OR ZOOMING
+
+const ResetViewButton = document.getElementById("ResetViewButton");
+ResetViewButton.onclick = function () { ResetView(); };
+
 // COMPLETION STATE (Auto-new off)
 
 const completeBanner = document.getElementById("completeBanner");
@@ -190,6 +195,13 @@ const pad = new DirectionPad(document.getElementById("directionPad"), { onSelect
 const gameDiv = document.getElementById("gameDiv");
 const canvas = document.getElementById("ctx");
 const renderer = new CanvasRenderer(canvas);
+
+// Dragging and pinching the canvas, and the wheel over it, pan and zoom the
+// view. They only change the drawing, never the maze or the player.
+attachViewGestures(canvas, {
+  viewport: () => (geometry === null ? null : renderer.viewportFor(geometry)),
+  change: (view) => { renderer.setView(view); Draw(); },
+});
 
 // GAME VARIABLES
 
@@ -345,7 +357,15 @@ function StartMaze(cols, rows, nextShape = shape)
   player.Stop();
   player.cell = 0;
   ClearCompletion();
+  renderer.setView({ zoom: 1, panX: 0, panY: 0 });
 
+  Draw();
+}
+
+// Back to the whole maze, centred and fitted to the canvas.
+function ResetView()
+{
+  renderer.setView({ zoom: 1, panX: 0, panY: 0 });
   Draw();
 }
 
@@ -442,8 +462,10 @@ function ReSizeMaze()
   gameDiv.style.justifyContent = 'center';
   gameDiv.style.alignItems = 'center';
 
-  // Only the drawing changes; the maze, player and route are kept.
+  // Only the drawing changes; the maze, player and route are kept. The zoom
+  // is kept too, with the pan brought within the new canvas's limits.
   FitCanvas();
+  if(geometry !== null) renderer.setView(renderer.viewportFor(geometry).clamped());
   Draw();
 }
 
