@@ -105,3 +105,38 @@ export function keyAngle(key)
   const name = String(key).toLowerCase();
   return Object.hasOwn(KEY_ANGLES, name) ? KEY_ANGLES[name] : undefined;
 }
+
+// Half the 60° between a hexagon's directions: a key with this tolerance
+// takes only the one direction it names.
+export const EXACT_TOLERANCE = Math.PI / 6;
+
+const [N, NE, SE, S, SW, NW] = DIRECTION_FRAMES.hex.map(([, angle]) => angle);
+
+// Six-way keys for hex grids, as { angle, tolerance }. Q W E over A S D lie
+// like the hexagon's sides, as do 7 8 9 over 1 2 3 on the numeric keypad
+// (Home, PageUp, End and PageDown with Num Lock off). Each takes exactly its
+// own side. Left and Right have no side of their own: they take NW or SW (NE
+// or SE) when just one of the two is open.
+const exact = (angle) => Object.freeze({ angle, tolerance: EXACT_TOLERANCE });
+const near = (angle) => Object.freeze({ angle, tolerance: DEFAULT_TOLERANCE });
+export const HEX_KEYS = Object.freeze({
+  arrowup: exact(N), w: exact(N), 8: exact(N),
+  arrowdown: exact(S), s: exact(S), 2: exact(S),
+  q: exact(NW), 7: exact(NW), home: exact(NW),
+  e: exact(NE), 9: exact(NE), pageup: exact(NE),
+  a: exact(SW), 1: exact(SW), end: exact(SW),
+  d: exact(SE), 3: exact(SE), pagedown: exact(SE),
+  arrowleft: near(Math.PI),
+  arrowright: near(0),
+});
+
+// The command a key gives on a grid of `kind`, as { angle, tolerance } for
+// pickDirection, or undefined for a key that is not a direction there. Hex
+// grids use HEX_KEYS; every other grid uses KEY_ANGLES.
+export function keyCommand(key, kind)
+{
+  const name = String(key).toLowerCase();
+  if(kind === 'hex') return Object.hasOwn(HEX_KEYS, name) ? HEX_KEYS[name] : undefined;
+  const angle = keyAngle(name);
+  return angle === undefined ? undefined : near(angle);
+}
