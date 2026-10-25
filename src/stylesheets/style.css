@@ -12,6 +12,12 @@
   align-items: center;
 }
 
+/* The page must not scroll or zoom under canvas gestures; they pan and zoom
+   the maze instead. */
+#ctx{
+  touch-action: none;
+}
+
 #footerControls{
   position: fixed;
   width: 100%;
