@@ -21,3 +21,4 @@ CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/polar.md` describes circular (polar) mazes.
 `docs/interface.md` describes the toolbar, settings and colours.
 `docs/release.md` records the release review: what the tests check and the manual browser pass still to do.
+`test/browser.test.js` runs in headless Chromium when Playwright is installed (see `docs/release.md`); otherwise it is skipped.

@@ -1,11 +1,25 @@
 # Release review (CAL-1244 / MM-V1-15)
 
 A review of every shape, generator mode and input before release: mobile
-usability, accessibility and regressions. The automated part runs in jsdom
-(`test/release.test.js`, with the rest of `npm test`). The run had no
-browser at all: Playwright's Chromium download was blocked, and no Safari,
-Firefox or device was available. A person still has to do the manual pass
-below on real browsers.
+usability, accessibility and regressions. The automated part is in two
+files, both run by `npm test`:
+
+- `test/release.test.js` runs in jsdom, always. It plays every shape × mode
+  and checks the layout arithmetic, but it has no CSS layout and simulates
+  touch and media queries.
+- `test/browser.test.js` runs in headless Chromium through Playwright, with
+  touch emulation, mobile viewports, rotation, the keyboard and emulated
+  reduced motion. It measures the laid-out page. Playwright is not a
+  dependency: the test uses `PLAYWRIGHT_MODULE`, a global install
+  (`/usr/local/lib/node_modules/playwright`) or one in `node_modules`, with
+  `PLAYWRIGHT_BROWSERS_PATH` (default `/usr/local/share/ms-playwright`) or
+  `CHROMIUM_PATH` for the browser. Without them it is skipped, as in CI today.
+
+For CAL-1244 the browser tests were run in headless Chromium (the
+`@sparticuz/chromium` build, through `playwright-core`), and all passed. Run
+against the code before this ticket, they failed on the toolbar size, reduced
+motion and pad focus. No WebKit (Safari), Firefox or real device was
+available, so a person still has to do the manual pass below.
 
 ## Fixed
 
@@ -18,7 +32,27 @@ below on real browsers.
 | A resize to a window with no room (size 0) made the view clamp throw. | Nothing is drawn until there is room. |
 | `main.js` had a dead `FlipPad` that used an undeclared variable, and lookups of icon elements that no longer exist. | Removed. |
 
-## Checked automatically
+## Checked in headless Chromium
+
+At 320 × 568, 390 × 844, 768 × 1024 and those on their side, and at
+1280 × 800 and 1920 × 1080 desktops, with touch on phones and tablets:
+
+- for every shape, the laid-out toolbar is at least 44 px with 40 px buttons,
+  every pad button is at least 44 px, and the maze, toolbar and pad buttons
+  are in view and never overlap, also after rotating;
+- the page never scrolls;
+- every shape is finished with `page.tap` on the pad, upright and on its side;
+- touch taps, a one-finger drag and a two-finger pinch on the maze (real
+  touch events through the DevTools protocol), and a mouse drag, wheel and
+  click, never move the player; the pad still works afterwards;
+- Tab reaches the settings, Enter opens them and Escape returns focus; every
+  shape is finished with the keys; a circle maze is finished with Tab and
+  Enter on the pad, and focus stays on the pad after every move;
+- with `prefers-reduced-motion: reduce` emulated, a pad tap has moved the
+  player before any animation frame; without it, the move animates;
+- no page errors or console errors.
+
+## Checked in jsdom
 
 Phone (320 × 568 to 414 × 896), tablet (768 × 1024, 820 × 1180) and desktop
 (800 × 600 to 1920 × 1080) windows, phones and tablets in both orientations:
