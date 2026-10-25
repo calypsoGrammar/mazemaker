@@ -16,10 +16,6 @@ hooks:
   timeout_ms: 600000
 agent:
   max_concurrent_agents: 1
-local:
-  capabilities:
-    - tag: node26
-      probe: [node, -e, "process.exit(process.versions.node.startsWith('26.') ? 0 : 1)"]
 archon:
   requires: [node26]
   verify:
