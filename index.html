@@ -11,7 +11,8 @@
 
       <div class="flex flex-row justify-center items-center border-b border-black">
         <div class="flex w-full max-w-7xl h-full flex-row justify-center mx-auto sm:px-6 lg:px-8" style="height:calc(var(--vh) * 7.5)">
-          <button id="ResetButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/undoLight.svg"></button>
+          <button id="ResetButton" aria-label="Restart this maze" title="Restart this maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/undoLight.svg" alt=""></button>
+          <button id="NewMazeButton" aria-label="New maze" title="New maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/newLight.svg" alt=""></button>
           <button id="ControllerButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/gamesLight.svg"></button>
           <button id="OptionsButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/optionsLight.svg"></button>
           <button id="SearchButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/searchLight.svg"></button>
@@ -22,8 +23,10 @@
     
         <div class="mx-auto mb-4 mt-8">
           <label for="display001" class="mr-8">Maze Size:</label>
-          <input type="number" id="display001" name="display001" class="text-center w-24 rounded border border-black">
+          <input type="number" id="display001" name="display001" min="2" max="50" step="1" inputmode="numeric" aria-describedby="sizeError" class="text-center w-24 rounded border border-black">
         </div>
+
+        <p id="sizeError" role="alert" class="mx-auto text-red-700">Enter a whole number from 2 to 50.</p>
     
         <div class="mx-auto my-4">
           <label for="autonew" class="mr-8">Auto-new:</label>
@@ -40,6 +43,11 @@
       </div>
     
       <div id="gameDiv">
+        <div id="completeBanner" role="status" class="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-2 bg-white border border-black rounded-lg px-4 py-2">
+          <span>Maze complete!</span>
+          <button id="completeRestart" class="px-2 border border-black rounded-lg active:scale-95">Restart</button>
+          <button id="completeNew" class="px-2 border border-black rounded-lg active:scale-95">New maze</button>
+        </div>
         <div id="canvasHolder">
           <canvas id="ctx" class="mx-auto"></canvas>
         </div>

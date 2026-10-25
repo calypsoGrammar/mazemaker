@@ -11,10 +11,9 @@ const PAD = { UP: 'upButton', DOWN: 'downButton', LEFT: 'leftButton', RIGHT: 'ri
 
 async function gameOfSize(n, { autoNew = true, increment = true, seed = n } = {}) {
   const g = await loadGame({ seed });
-  g.document.getElementById('display001').value = n;
   g.document.getElementById('autonew').checked = autoNew;
   g.document.getElementById('autoincrement').checked = increment;
-  g.click('ResetButton');
+  g.generateFromSettings(n);
   return g;
 }
 
@@ -104,7 +103,7 @@ test('a new maze clears the route and stops recomputing it', async () => {
   const g = await gameOfSize(6, { autoNew: false });
   g.click('SearchButton');
   assert.ok(g.state.route.length > 0);
-  g.click('ResetButton');
+  g.click('NewMazeButton');
   assert.deepEqual([...g.state.route], []);
   const [first] = neighbours(g.state.maze, 6, 0);
   walk(g, [first[0]]);
@@ -133,11 +132,12 @@ for (const [name, input] of [
   });
 }
 
-test('upper-case WASD (Shift or Caps Lock) is ignored', async () => {
+// Changed in CAL-1236: upper-case WASD used to be ignored (defect 4).
+test('upper-case WASD (Shift or Caps Lock) moves like lower case', async () => {
   const g = await gameOfSize(6, { autoNew: false });
-  const [[dir]] = neighbours(g.state.maze, 6, 0);
+  const [[dir, cell]] = neighbours(g.state.maze, 6, 0);
   g.key(WASD[dir].toUpperCase());
-  assert.equal(g.state.player.cell, 0);
+  assert.equal(g.state.player.cell, cell);
 });
 
 test('reaching the exit with auto-new and auto-increment starts a maze one size larger', async () => {
@@ -167,6 +167,7 @@ test('reaching the exit with auto-new off leaves the player on the exit', async 
   const g = await gameOfSize(5, { autoNew: false });
   walk(g, shortestRoute(g.state.maze, 5, 0, 24).dirs);
   assert.equal(g.state.player.cell, 24);
+  assert.equal(g.state.topology.size, 25);
 });
 
 test('settings button toggles the settings panel; Generate applies size and toggles and closes it', async () => {
@@ -188,14 +189,17 @@ test('settings button toggles the settings panel; Generate applies size and togg
   assert.equal(g.state.increment, false);
 });
 
-test('reset (undo icon) makes a new maze at the size currently in the settings field', async () => {
+// Changed in CAL-1236: Reset used to make a new maze at whatever size was
+// typed in the settings field (defect 6). It now restarts the current maze;
+// the new-maze button makes another layout at the size in play.
+test('reset (undo icon) restarts the current maze; the new-maze button makes another layout', async () => {
   const g = await loadGame();
   const old = JSON.stringify(g.state.maze.passages());
   g.document.getElementById('display001').value = 7;
   g.click('ResetButton');
-  assert.equal(g.state.topology.size, 49);
-  g.document.getElementById('display001').value = 5;
-  g.click('ResetButton');
+  assert.equal(g.state.topology.size, 25);
+  assert.equal(JSON.stringify(g.state.maze.passages()), old);
+  g.click('NewMazeButton');
   assert.equal(g.state.topology.size, 25);
   assert.notEqual(JSON.stringify(g.state.maze.passages()), old);
 });
