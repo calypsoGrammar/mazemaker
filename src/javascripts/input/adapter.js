@@ -147,9 +147,26 @@ export const HEX_KEYS = Object.freeze({
   arrowright: near(0),
 });
 
-// The command a key gives on a grid of `kind`, as { angle, tolerance } for
-// pickDirection, or undefined for a key that is not a direction there. Hex
-// grids use HEX_KEYS; every other grid uses KEY_ANGLES.
+// Ring-relative keys for polar grids, as { match } commands: a polar cell's
+// directions turn as the player goes round, so these keys name the way along
+// the ring instead of a screen angle. Up and W go outward, Down and S inward,
+// Left and A anticlockwise, Right and D clockwise. Where a cell splits into
+// several outward cells, 1 to 9 take outward passage 1 to 9 (OUT0 to OUT8),
+// numbered clockwise; Up then moves only when just one of them is open.
+const label = (name) => Object.freeze({ match: (l) => l === name });
+const outward = Object.freeze({ match: (l) => /^OUT\d+$/.test(l) });
+export const POLAR_KEYS = Object.freeze({
+  arrowup: outward, w: outward,
+  arrowdown: label('IN'), s: label('IN'),
+  arrowleft: label('CCW'), a: label('CCW'),
+  arrowright: label('CW'), d: label('CW'),
+  ...Object.fromEntries(Array.from({ length: 9 }, (_, k) => [String(k + 1), label(`OUT${k}`)])),
+});
+
+// The command a key gives on a grid of `kind`, or undefined for a key that is
+// not a direction there: { angle, tolerance } for pickDirection, or { match }
+// for the open direction whose label it matches. Hex grids use HEX_KEYS,
+// polar grids POLAR_KEYS, and every other grid KEY_ANGLES.
 //
 // On triangle grids the arrow keys and WASD take EXACT_TOLERANCE. Every
 // triangle has a left and a right side, facing 30° above or below level, and
@@ -160,7 +177,18 @@ export function keyCommand(key, kind)
 {
   const name = String(key).toLowerCase();
   if(kind === 'hex') return Object.hasOwn(HEX_KEYS, name) ? HEX_KEYS[name] : undefined;
+  if(kind === 'polar') return Object.hasOwn(POLAR_KEYS, name) ? POLAR_KEYS[name] : undefined;
   const angle = keyAngle(name);
   if(angle === undefined) return undefined;
   return kind === 'triangle' ? exact(angle) : near(angle);
+}
+
+// The label a command from keyCommand takes among `directions`, or null. A
+// { match } command takes the one open direction whose label it matches, and
+// nothing when none or several are open: it never picks between passages.
+export function chooseDirection(directions, command)
+{
+  if(command.match === undefined) return pickDirection(directions, command.angle, { tolerance: command.tolerance });
+  const open = directions.filter((d) => d.open && command.match(d.label));
+  return open.length === 1 ? open[0].label : null;
 }

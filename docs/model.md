@@ -35,7 +35,9 @@ The factories number cells deterministically from their arguments:
 
 In the polar grid, each ring has as many cells as the ring inside it,
 multiplied by `round(2π · ring / inner count)`. For example, 5 rings give
-1, 6, 12, 24 and 24 cells. Each factory also provides `cellAt(...)` and
+1, 6, 12, 24 and 24 cells. `polarRingSizes(rings)` gives these counts
+without building the grid. Outward neighbours are numbered clockwise:
+`OUT0` is the one furthest anticlockwise. Each factory also provides `cellAt(...)` and
 `coordsOf(id)` for its lattice coordinates (column/row or ring/index). These
 are not pixels.
 

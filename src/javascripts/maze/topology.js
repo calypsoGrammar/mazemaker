@@ -180,12 +180,9 @@ export function triangleTopology(cols, rows = cols)
   return t;
 }
 
-// Polar (circular) grid with `rings` rings. Ring 0 is a single centre cell.
-// Each further ring has as many cells as the ring inside it, multiplied by a
-// whole number chosen so cells stay roughly as wide as a ring is deep; so a cell
-// can have several outward neighbours. Numbered from the centre outwards, then
-// clockwise from the same spoke in every ring. Labels: CW, CCW, IN, OUT0, OUT1, ...
-export function polarTopology(rings)
+// The number of cells in each ring of polarTopology(rings), centre first, so a
+// caller can count the cells before building the grid.
+export function polarRingSizes(rings)
 {
   checkDimension('rings', rings);
   const counts = [1];
@@ -195,6 +192,17 @@ export function polarTopology(rings)
     const ratio = Math.max(1, Math.round((2 * Math.PI * ring) / previous));
     counts.push(previous * ratio);
   }
+  return counts;
+}
+
+// Polar (circular) grid with `rings` rings. Ring 0 is a single centre cell.
+// Each further ring has as many cells as the ring inside it, multiplied by a
+// whole number chosen so cells stay roughly as wide as a ring is deep; so a cell
+// can have several outward neighbours. Numbered from the centre outwards, then
+// clockwise from the same spoke in every ring. Labels: CW, CCW, IN, OUT0, OUT1, ...
+export function polarTopology(rings)
+{
+  const counts = polarRingSizes(rings);
   const firsts = [];
   counts.reduce((first, count) => { firsts.push(first); return first + count; }, 0);
   const id = (ring, i) => firsts[ring] + i;
