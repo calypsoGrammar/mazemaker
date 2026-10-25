@@ -22,8 +22,13 @@ right, in three groups:
 States are the same for every button:
 
 - hover: light grey background;
-- keyboard focus (`:focus-visible`): a dark 2 px ring;
-- pressed toggle or open panel: dark background, white icon.
+- keyboard focus (`:focus-visible`): a dark 2 px ring, 2 px out from the
+  button behind a white gap, so it also shows around a filled button;
+- pressed toggle or open panel: dark background, white icon, a lighter dark
+  grey on hover.
+
+Focus outlines are made transparent, never removed, so forced-colours (high
+contrast) mode, which drops the ring, still draws an outline.
 
 Only colours change, over 150 ms (none with `prefers-reduced-motion`). There
 are no shadows, gradients, scaling or animations. On a short screen the buttons

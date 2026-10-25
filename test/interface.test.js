@@ -256,3 +256,24 @@ test('no shadows, gradients or animations in the markup or the stylesheet', () =
     assert.match(m[1], /^(none|(fill|stroke) \d+ms(, (fill|stroke) \d+ms)*)$/, m[0]);
   }
 });
+
+// The CSS rule for `selector` exactly, or '' when there is none.
+function rule(css, selector) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[},\\s])${escaped}\\s*[,{][^}]*}`, 'm').exec(css)?.[0] ?? '';
+}
+
+test('focus and hover stay visible on pressed buttons and in forced-colours mode', () => {
+  const css = readFileSync(new URL('../src/stylesheets/style.css', import.meta.url), 'utf8');
+  // Focus: a ring set off from the button, so it shows around a filled one.
+  assert.match(rule(css, '.tool:focus-visible'), /ring-2\b.*ring-offset-2\b.*ring-offset-white/s);
+  // Outlines are made transparent, never removed, so high contrast keeps them.
+  assert.doesNotMatch(css, /outline:\s*none/);
+  assert.match(rule(css, '.tool:focus'), /outline-none/);
+  // A pressed or open button has its own hover, declared after its fill.
+  const pressed = css.indexOf('.tool[aria-pressed="true"],');
+  const hover = css.indexOf('.tool[aria-pressed="true"]:hover');
+  assert.ok(pressed >= 0 && hover > pressed, 'pressed hover follows the pressed rule');
+  assert.match(css.slice(hover, css.indexOf('}', hover)), /bg-neutral-700/);
+  assert.ok(css.includes('.tool[aria-expanded="true"]:hover'));
+});

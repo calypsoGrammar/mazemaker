@@ -25,17 +25,25 @@
     @apply bg-neutral-100 text-neutral-900;
   }
 
+  /* A transparent outline rather than none: forced-colours (high contrast)
+     mode drops the ring but draws the outline. */
   .tool:focus{
-    outline: none;
+    @apply outline-none;
   }
 
+  /* The white gap keeps the ring apart from a filled (pressed) button. */
   .tool:focus-visible{
-    @apply ring-2 ring-neutral-900 text-neutral-900;
+    @apply ring-2 ring-neutral-900 ring-offset-2 ring-offset-white;
   }
 
   .tool[aria-pressed="true"],
   .tool[aria-expanded="true"]{
     @apply bg-neutral-900 text-white;
+  }
+
+  .tool[aria-pressed="true"]:hover,
+  .tool[aria-expanded="true"]:hover{
+    @apply bg-neutral-700 text-white;
   }
 
   .tool-gap{
@@ -62,7 +70,7 @@
   .setting-field:focus,
   .setting-check:focus,
   .setting-action:focus{
-    outline: none;
+    @apply outline-none;
   }
 
   .setting-field:focus-visible,
@@ -191,7 +199,8 @@
 }
 
 .pad-button:focus{
-  outline: none;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
 }
 
 .pad-button:focus-visible circle{
