@@ -256,7 +256,7 @@ test('mobile: the direction pad moves the player and never pans', async () => {
   const button = g.document.getElementById(id);
   // A finger dragged across the pad, then a tap on it.
   drag(g, button, { x: 10, y: 10 }, { x: 200, y: 300 });
-  button.click();
+  g.click(id);
   const trail = g.settle();
   assert.equal(trail[1], first.cell, 'the tap moved the player');
   const after = g.state.renderer.viewport;
