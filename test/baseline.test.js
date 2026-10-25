@@ -72,13 +72,43 @@ test('search (magnifier) highlights the shortest route from the player to the ex
   }
 });
 
-test('the highlighted route stays as drawn when the player moves', async () => {
+// Changed in CAL-1234: the route used to stay as drawn when the player moved.
+test('after search, the highlighted route is recomputed from the player after every move', async () => {
   const g = await gameOfSize(10, { autoNew: false });
-  g.click('SearchButton');
-  const before = [...g.state.route];
+  // Before search, moving does not show a route.
   const [first] = neighbours(g.state.maze, 10, 0);
   walk(g, [first[0]]);
-  assert.deepEqual([...g.state.route], before);
+  assert.deepEqual([...g.state.route], []);
+  walk(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[first[0]]]);
+  g.click('SearchButton');
+  assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, 0, 99).cells);
+  // Walk every open passage out of the start, including ones off the route
+  // into dead ends, and back.
+  for (const [dir, cell] of neighbours(g.state.maze, 10, 0)) {
+    walk(g, [dir]);
+    assert.equal(g.state.player.cell, cell);
+    assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, cell, 99).cells);
+    walk(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[dir]]);
+    assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, 0, 99).cells);
+  }
+  // Following the route shortens it one cell at a time, down to the exit.
+  const { dirs } = shortestRoute(g.state.maze, 10, 0, 99);
+  dirs.forEach((d, k) => {
+    walk(g, [d]);
+    assert.equal(g.state.route.length, dirs.length - k);
+  });
+  assert.deepEqual([...g.state.route], [99]);
+});
+
+test('a new maze clears the route and stops recomputing it', async () => {
+  const g = await gameOfSize(6, { autoNew: false });
+  g.click('SearchButton');
+  assert.ok(g.state.route.length > 0);
+  g.click('ResetButton');
+  assert.deepEqual([...g.state.route], []);
+  const [first] = neighbours(g.state.maze, 6, 0);
+  walk(g, [first[0]]);
+  assert.deepEqual([...g.state.route], []);
 });
 
 for (const [name, input] of [

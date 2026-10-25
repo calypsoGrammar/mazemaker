@@ -29,6 +29,7 @@ class Player
     const next = maze.move(this.cell, DIRECTION);
     if(next === null) return;
     this.cell = next;
+    UpdateRoute();
     Draw();
     this.CheckWin();
   }
@@ -120,7 +121,10 @@ let maze = null;
 let geometry = null;
 let exitCell = 0;
 // Cells of the route shown by Search, from the player's cell to the exit.
+// Once Search is pressed the route is recomputed after every move, until the
+// next maze.
 let route = [];
+let showRoute = false;
 let player = new Player();
 
 function ToggleSettings()
@@ -190,6 +194,7 @@ function NewMaze()
   geometry = geometryFor(topology);
   exitCell = topology.size - 1;
   route = [];
+  showRoute = false;
   player.cell = 0;
 
   Draw();
@@ -306,8 +311,17 @@ function FlipPad()
 
 function Find()
 {
-  route = shortestPath(maze, player.cell, exitCell) ?? [];
+  showRoute = true;
+  UpdateRoute();
   Draw();
+}
+
+// Recomputes the shown route from the player's current cell. An unreachable
+// exit gives an empty route.
+function UpdateRoute()
+{
+  if(!showRoute) return;
+  route = shortestPath(maze, player.cell, exitCell) ?? [];
 }
 
 window.addEventListener('resize', ReSizeMaze);

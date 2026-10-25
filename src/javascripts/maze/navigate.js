@@ -16,9 +16,16 @@ export function reachable(maze, from)
 }
 
 // The shortest route from `from` to `to` as a list of cells including both
-// ends, or null if `to` cannot be reached.
+// ends, or null if `to` cannot be reached. Breadth-first search over the
+// unweighted passage graph: every cell is queued at most once, so it ends on
+// any maze, including ones with loops or disconnected parts. Throws a
+// RangeError when either cell is not in the maze.
 export function shortestPath(maze, from, to)
 {
+  for(const id of [from, to])
+  {
+    if(!maze.topology.has(id)) throw new RangeError(`cell ${id} does not exist`);
+  }
   const previous = new Map([[from, null]]);
   const queue = [from];
   for(let i = 0; i < queue.length && !previous.has(to); i++)
@@ -30,8 +37,8 @@ export function shortestPath(maze, from, to)
   }
   if(!previous.has(to)) return null;
   const path = [];
-  for(let cell = to; cell !== null; cell = previous.get(cell)) path.unshift(cell);
-  return path;
+  for(let cell = to; cell !== null; cell = previous.get(cell)) path.push(cell);
+  return path.reverse();
 }
 
 // True when the maze is perfect: every cell is reachable from every other by
