@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadGame, neighbours, shortestRoute } from './harness.js';
+import { assertPerfectMaze, loadGame, neighbours, shortestRoute } from './harness.js';
 
 const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 const WASD = { UP: 'w', DOWN: 's', LEFT: 'a', RIGHT: 'd' };
@@ -49,32 +49,7 @@ test('canvas is a square sized to 90% of the smaller of the width and 62.5% of t
 test('generation produces a perfect maze (spanning tree) for every size from 2 to 50', async () => {
   for (let n = 2; n <= 50; n++) {
     const { state } = await gameOfSize(n);
-    const { maze } = state;
-    assert.equal(maze.length, n * n);
-    let passages = 0;
-    for (let i = 0; i < maze.length; i++) {
-      const cell = maze[i];
-      const x = Math.floor(i / n);
-      const y = i % n;
-      // Outer walls stay closed.
-      if (y === 0) assert.equal(cell.up, true, `n=${n} cell ${i} top`);
-      if (y === n - 1) assert.equal(cell.down, true, `n=${n} cell ${i} bottom`);
-      if (x === 0) assert.equal(cell.left, true, `n=${n} cell ${i} left`);
-      if (x === n - 1) assert.equal(cell.right, true, `n=${n} cell ${i} right`);
-      // Walls agree on both sides.
-      if (!cell.down) { assert.equal(maze[i + 1].up, false); passages++; }
-      if (!cell.right) { assert.equal(maze[i + n].left, false); passages++; }
-    }
-    // A connected graph with n*n - 1 edges is a tree: no loops, every cell reachable.
-    assert.equal(passages, n * n - 1, `n=${n} passages`);
-    const seen = new Set([0]);
-    const queue = [0];
-    while (queue.length) {
-      for (const [, j] of neighbours(maze, n, queue.shift())) {
-        if (!seen.has(j)) { seen.add(j); queue.push(j); }
-      }
-    }
-    assert.equal(seen.size, n * n, `n=${n} reachable`);
+    assertPerfectMaze(assert, state.maze, n, n);
   }
 });
 
