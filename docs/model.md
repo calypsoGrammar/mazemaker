@@ -132,7 +132,9 @@ from the beginning rather than being skipped. `Player.cell` changes when a
 step ends, and the route shown by Search is recomputed then. Win checks
 (completion, Auto-new, Auto-increment) run only when the whole run has ended.
 Movement input is ignored while a run is under way. Restart, New maze and
-Generate stop it at once.
+Generate stop it at once. With `prefers-reduced-motion: reduce` (CAL-1244)
+nothing is animated: the player goes straight to the end of the run, and the
+route and win checks follow at once. The setting is read on every move.
 
 ## Changes in the game
 

@@ -4,7 +4,7 @@
 // recorded but not rasterised: the tests check game state and draw calls, not pixels.
 
 import { readFileSync } from 'node:fs';
-import { JSDOM } from 'jsdom';
+import { JSDOM, VirtualConsole } from 'jsdom';
 import * as model from '../src/javascripts/maze/index.js';
 import * as render from '../src/javascripts/render/index.js';
 import * as input from '../src/javascripts/input/index.js';
@@ -74,9 +74,24 @@ function seeded(seed) {
   };
 }
 
-export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768, devicePixelRatio = 1 } = {}) {
-  const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true });
+// `reducedMotion` sets prefers-reduced-motion (jsdom has no matchMedia; the
+// stub answers that query and matches no other). Errors thrown by the page's
+// event handlers, which jsdom reports instead of throwing, are kept in
+// `errors`.
+export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768, devicePixelRatio = 1, reducedMotion = false } = {}) {
+  const errors = [];
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.sendTo(console, { omitJSDOMErrors: true });
+  virtualConsole.on('jsdomError', (error) => errors.push(error));
+  const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
   const { window } = dom;
+  const media = { reducedMotion };
+  window.matchMedia = (query) => ({
+    media: query,
+    get matches() { return query === '(prefers-reduced-motion: reduce)' && media.reducedMotion; },
+    addEventListener() {},
+    removeEventListener() {},
+  });
   Object.defineProperty(window, 'innerWidth', { value: innerWidth, configurable: true });
   Object.defineProperty(window, 'innerHeight', { value: innerHeight, configurable: true });
   Object.defineProperty(window, 'devicePixelRatio', { value: devicePixelRatio, configurable: true, writable: true });
@@ -126,6 +141,10 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
       if (typeof element.click === 'function') element.click();
       else element.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     },
+    // Uncaught errors from the page's event handlers.
+    errors,
+    // Turns prefers-reduced-motion on or off, as the system setting would.
+    setReducedMotion(on) { media.reducedMotion = on; },
     // Number of animation frames waiting to run.
     get pendingFrames() { return frames.size; },
     // Runs one animation frame `ms` later than the last.

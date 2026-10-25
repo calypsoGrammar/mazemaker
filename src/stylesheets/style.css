@@ -92,7 +92,7 @@
   position: fixed;
   top: 0;
   width: 100%;
-  height: calc(var(--vh) * 7.5);
+  height: max(calc(var(--vh) * 7.5), 44px);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -100,8 +100,8 @@
   padding: 0 0.5rem;
 }
 
-/* On a short landscape screen the toolbar is under 40px; its buttons shrink
-   with it and stay square. */
+/* The toolbar is never shorter than 44px (pageLayout), so its buttons stay
+   40px squares; they would shrink with it and stay square if it were. */
 #toolbar .tool{
   width: auto;
   height: min(2.5rem, 100%);
@@ -117,8 +117,13 @@
   overflow-y: auto;
 }
 
+/* The regions below are where the page is before main.js runs; main.js then
+   places the toolbar, the maze and the pad for the window (pageLayout in
+   render/layout.js), with the pad beside the maze on a short landscape
+   screen. */
 #gameDiv{
   position: fixed;
+  left: 0;
   width: 100%;
   height: calc(var(--vh) * 62.5);
   top: calc(var(--vh) * 7.5);
@@ -149,11 +154,17 @@
 
 #footerControls{
   position: fixed;
+  left: 0;
   width: 100%;
   height: calc(var(--vh) * 30);
   top: calc(var(--vh) * 70);
   display: flex;
   justify-content: center;
+}
+
+/* Beside the maze the pad is centred in its column. */
+.side-layout #footerControls{
+  align-items: center;
 }
 
 /* The direction pad fills the footer up to a thumb-sized square. Taps on it

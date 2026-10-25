@@ -1,7 +1,7 @@
 "use strict";
 
 import { squareTopology, hexTopology, triangleTopology, polarTopology, polarRingSizes, growingTree, STRATEGIES, DEFAULT_STRATEGY, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
-import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
+import { geometryFor, CanvasRenderer, attachViewGestures, pageLayout } from './render/index.js';
 import { directionsAt, chooseDirection, keyCommand, DirectionPad } from './input/index.js';
 
 function CalculateVh()
@@ -19,6 +19,11 @@ window.addEventListener('orientationchange', CalculateVh);
 // How long the player takes to cross one passage, in milliseconds. Every step
 // of a run takes the same time.
 const STEP_MS = 70;
+
+// With prefers-reduced-motion a run is not animated: the player is drawn at
+// the end of the corridor at once. Read on every move, so changing the setting
+// takes effect without a reload.
+const reducedMotion = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
 // The player's position is a cell ID; where it is drawn comes from the layout.
 // One move runs along a corridor: through the passage chosen, then on while
@@ -46,7 +51,16 @@ class Player
     if(maze === null || this.moving) return;
     const next = maze.move(this.cell, DIRECTION);
     if(next === null) return;
-    this.run = { cells: corridor(maze, this.cell, next, { stopAt: exitCell }), start: null, progress: 0 };
+    const cells = corridor(maze, this.cell, next, { stopAt: exitCell });
+    if(reducedMotion !== null && reducedMotion.matches)
+    {
+      this.cell = cells.at(-1);
+      UpdateRoute();
+      Draw();
+      this.CheckWin();
+      return;
+    }
+    this.run = { cells, start: null, progress: 0 };
     this.frame = requestAnimationFrame((time) => this.Animate(time));
     Draw();
   }
@@ -153,13 +167,7 @@ const ControllerButton = document.getElementById("ControllerButton");
 ControllerButton.onclick = function () { HidePad(); };
 let hideT = false;
 const footerControls = document.getElementById("footerControls");
-
-// THEME related references
-
-const iUp = document.getElementById("iUp");
-const iLeft = document.getElementById("iLeft");
-const iRight = document.getElementById("iRight");
-const iDown = document.getElementById("iDown");
+const toolbar = document.getElementById("toolbar");
 
 // TOGGLE CUSTOM MAZE MENU
 
@@ -229,7 +237,7 @@ const SHAPES = Object.freeze({
   }),
 });
 
-let width, height, autoNew, increment, factor;
+let width, height, autoNew, increment;
 // The shape in play, a key of SHAPES. New maze and Auto-increment keep it.
 let shape = 'square';
 // The generator mode in play, a key of STRATEGIES. New maze and Auto-new keep it.
@@ -283,7 +291,7 @@ function DefaultSettings()
   mazeShape.value = 'square';
   mazeMode.value = DEFAULT_STRATEGY;
 
-  FitCanvas();
+  LayOut();
 
   aNew.checked = true;
   aIncrement.checked = true;
@@ -417,23 +425,28 @@ function UpdatePad()
   pad.update(directionsAt(maze, geometry, player.cell));
 }
 
-// Sizes the canvas to 90% of the smaller of the window width and the game area
-// height, at the screen's pixel density.
-function FitCanvas()
+// Places the toolbar, the maze and the pad for the window (see pageLayout:
+// stacked, or the pad beside the maze on a short landscape screen) and sizes
+// the canvas to 90% of the maze area's shorter side, at the screen's pixel
+// density.
+function LayOut()
 {
-  if(hideT) factor = 0.925;
-  else factor = 0.625;
-
-  let screenWidth = window.innerWidth;
-  let screenHeight = window.innerHeight * factor;
-  let squareSize;
-
-  if(screenWidth >= screenHeight) squareSize = screenHeight;
-  else squareSize = screenWidth;
-
-  squareSize = squareSize * 0.9;
-
-  renderer.resize(squareSize, squareSize, window.devicePixelRatio || 1);
+  const layout = pageLayout({ width: window.innerWidth, height: window.innerHeight, padShown: !hideT });
+  const place = (element, region) =>
+  {
+    element.style.left = region.left + 'px';
+    element.style.top = region.top + 'px';
+    element.style.width = region.width + 'px';
+    element.style.height = region.height + 'px';
+  };
+  toolbar.style.height = layout.toolbar.height + 'px';
+  place(gameDiv, layout.game);
+  if(layout.pad !== null) place(footerControls, layout.pad);
+  settingsMenu.style.top = layout.toolbar.height + 'px';
+  settingsMenu.style.maxHeight = (window.innerHeight - layout.toolbar.height) + 'px';
+  document.body.classList.toggle('side-layout', layout.side);
+  renderer.resize(layout.canvas, layout.canvas, window.devicePixelRatio || 1);
+  return layout;
 }
 
 // PLAYER MOVEMENT
@@ -491,42 +504,13 @@ function HidePad()
 
 function ReSizeMaze()
 {
-  let vhFactor;
-  if(hideT) vhFactor = 92.5;
-  else vhFactor = 62.5;
-
-  gameDiv.style.height = 'calc(var(--vh) * ' + vhFactor + ')';
-  gameDiv.style.top = 'calc(var(--vh) * 7.5)';
-  gameDiv.style.display = 'flex';
-  gameDiv.style.justifyContent = 'center';
-  gameDiv.style.alignItems = 'center';
-
   // Only the drawing changes; the maze, player and route are kept. The zoom
   // is kept too, with the pan brought within the new canvas's limits.
-  FitCanvas();
-  if(geometry !== null) renderer.setView(renderer.viewportFor(geometry).clamped());
+  // A window with no room for the maze (some browsers report a size of 0
+  // while a page is hidden or rotating) draws nothing until it has room.
+  const { canvas: side } = LayOut();
+  if(geometry !== null && side > 0) renderer.setView(renderer.viewportFor(geometry).clamped());
   Draw();
-}
-
-// FLIP PAD
-
-function FlipPad()
-{
-  if(flipState === "center")
-  {
-    footerControls.style.justifyContent = "right";
-    flipState = "right";
-  }
-  else if (flipState === "right")
-  {
-    footerControls.style.justifyContent = "left";
-    flipState = "left";
-  }
-  else if (flipState === "left")
-  {
-    footerControls.style.justifyContent = "center";
-    flipState = "center";
-  }
 }
 
 // SEARCH
