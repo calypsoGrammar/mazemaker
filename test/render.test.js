@@ -250,9 +250,8 @@ test('game: high-DPI screens get a sharper backing store of the same displayed s
 
 test('game: resizing the window keeps the maze, player and route, and redraws them', async () => {
   const g = await loadGame({ seed: 5 });
-  g.document.getElementById('display001').value = 8;
   g.document.getElementById('autonew').checked = false;
-  g.click('ResetButton');
+  g.generateFromSettings(8);
   const [first] = g.state.maze.traversableLinks(0);
   g.key({ UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' }[first.label]);
   assert.equal(g.state.player.cell, first.cell);

@@ -94,10 +94,9 @@ for (const [cols, rows] of GEOMETRIES) {
     const next = await gameAt(cols, rows, { autoNew: true });
     const first = next.state.maze;
     for (const d of shortestRoute(next.state.maze, rows, 0, cols * rows - 1).dirs) next.key(ARROWS[d]);
-    // NewMaze rebuilds the cells; the new maze takes its size from the size field.
+    // Auto-new keeps the size in play (Auto-increment is off here).
     assert.notEqual(next.state.maze, first);
-    const size = Number(next.document.getElementById('display001').value);
-    assertPerfectMaze(assert, next.state.maze, size, size);
+    assertPerfectMaze(assert, next.state.maze, cols, rows);
     assert.equal(next.state.player.cell, 0);
   });
 
@@ -109,7 +108,9 @@ for (const [cols, rows] of GEOMETRIES) {
   });
 }
 
-// Malformed sizes. The input is a free <input type="number"> with no limits.
+// Malformed sizes. Since CAL-1236 the size field takes whole numbers from 2 to
+// 50 only (it used to throw on bad input, defect 1, and let size 1 make an
+// unwinnable maze, defect 2).
 
 function captureErrors(g) {
   const errors = [];
@@ -120,35 +121,46 @@ function captureErrors(g) {
   return errors;
 }
 
-for (const value of ['0', '', '-3', '2.5', 'abc']) {
-  test(`known defect 1: size ${JSON.stringify(value)} throws a RangeError and keeps the previous maze; Reset at a valid size recovers`, async () => {
+for (const value of ['0', '1', '', ' ', '-3', '2.5', '1e1', '51', '9999999999', 'abc']) {
+  test(`fixed defect 1: size ${JSON.stringify(value)} is refused with a message and keeps the current maze`, async () => {
     const g = await loadGame();
     const before = g.state.maze;
     const errors = captureErrors(g);
-    g.click('OptionsButton');
-    g.document.getElementById('display001').value = value;
-    g.click('generateMaze');
-    assert.equal(errors.length, 1);
-    assert.ok(errors[0] instanceof RangeError, String(errors[0]));
-    // The size is checked before any state changes, so the 5x5 maze stays in play.
+    const randomCalls = g.randomCalls;
+    g.generateFromSettings(value);
+    assert.deepEqual(errors, []);
+    // No maze was generated: the 5x5 maze stays in play and the panel stays open.
+    assert.equal(g.randomCalls, randomCalls);
     assert.equal(g.state.maze, before);
     assert.equal(g.state.width, 5);
-    assert.equal(g.document.getElementById('settingsMenu').style.display, 'none');
+    assert.equal(g.document.getElementById('settingsMenu').style.display, '');
+    assert.equal(g.document.getElementById('sizeError').style.display, '');
 
-    g.document.getElementById('display001').value = 6;
-    g.click('ResetButton');
-    assert.equal(errors.length, 1);
+    g.generateFromSettings(6);
+    assert.deepEqual(errors, []);
+    assert.equal(g.document.getElementById('settingsMenu').style.display, 'none');
     assertPerfectMaze(assert, g.state.maze, 6, 6);
+    // Reopening the panel shows the size in play, without the message.
+    g.click('OptionsButton');
+    assert.equal(g.document.getElementById('display001').value, '6');
+    assert.equal(g.document.getElementById('sizeError').style.display, 'none');
   });
 }
 
-test('known defect 2: size 1 makes a single cell that is both start and exit, and cannot be won', async () => {
-  const g = await gameAt(1, 1, { autoNew: true, increment: true });
-  assertPerfectMaze(assert, g.state.maze, 1, 1);
-  const before = g.state.maze;
-  for (const key of Object.values(ARROWS)) g.key(key);
-  assert.equal(g.state.maze, before);
-  assert.equal(g.state.player.cell, 0);
+for (const size of [2, 12, 50]) {
+  test(`size ${JSON.stringify(size)} is accepted`, async () => {
+    const g = await loadGame();
+    g.generateFromSettings(size);
+    assertPerfectMaze(assert, g.state.maze, size, size);
+  });
+}
+
+test('the size field declares its whole-number range', async () => {
+  const g = await loadGame();
+  const field = g.document.getElementById('display001');
+  assert.equal(field.min, '2');
+  assert.equal(field.max, '50');
+  assert.equal(field.step, '1');
 });
 
 // Defects 13 and 14 showed only on geometries the UI cannot make yet; 3 and 15

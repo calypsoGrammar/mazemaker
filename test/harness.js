@@ -36,11 +36,14 @@ window.__mm = {
   get autoNew() { return autoNew; },
   get increment() { return increment; },
   get hideT() { return hideT; },
+  get completed() { return completed; },
   get canvas() { return canvas; },
   get geometry() { return geometry; },
   get renderer() { return renderer; },
   Find,
   NewMaze,
+  StartMaze,
+  ReadToggles,
 };`;
 
 // A 2D context that records every method call as [name, ...args] in `calls`.
@@ -104,21 +107,18 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
     // The 2D context's recorded calls.
     get drawCalls() { return document.getElementById('ctx').getContext('2d').calls; },
     get randomCalls() { return randomCalls; },
-    // Runs main.js's NewMaze() at a size the UI cannot express. NewMaze reads
-    // the size field twice, first for the width (columns) and then for the
-    // height (rows); this answers those reads with `cols` and `rows`.
+    // Applies the Auto-new and Auto-increment checkboxes as they are, then
+    // runs main.js's StartMaze() at any size, including ones the size field
+    // refuses (rectangles, or sides outside 2-50).
     generate(cols, rows = cols) {
-      const field = Object.getOwnPropertyDescriptor(window, 'display001');
-      const reads = [cols, rows];
-      Object.defineProperty(window, 'display001', {
-        configurable: true,
-        value: { get value() { return reads.shift(); }, set value(v) {} },
-      });
-      try {
-        window.__mm.NewMaze();
-      } finally {
-        Object.defineProperty(window, 'display001', field);
-      }
+      window.__mm.ReadToggles();
+      window.__mm.StartMaze(cols, rows);
+    },
+    // Types `size` into the settings and presses Generate, as a player would.
+    generateFromSettings(size) {
+      if (document.getElementById('settingsMenu').style.display === 'none') this.click('OptionsButton');
+      document.getElementById('display001').value = size;
+      this.click('generateMaze');
     },
   };
 }

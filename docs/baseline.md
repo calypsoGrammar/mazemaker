@@ -100,7 +100,8 @@ Colours: walls `rgba(50,50,60)`, player green `rgba(150,250,150)`, exit red
 |---|---|
 | Arrow keys or `w` `a` `s` `d` (lower case only) | Move one cell. Moves into a wall are ignored. |
 | D-pad buttons (click or tap) | Same as the keys. |
-| Reset (undo) | New maze at the size **currently typed** in the settings field (not a reset to size 5). |
+| Reset (undo) | New maze at the size **currently typed** in the settings field (not a reset to size 5). *Since CAL-1236:* restarts the current maze. |
+| New maze (plus icon, *added in CAL-1236*) | A new layout at the size in play. |
 | Controller | Hides or shows the D-pad. The canvas grows or shrinks and keeps the player's cell. |
 | Settings | Opens or closes the settings panel. |
 | Search | Highlights the shortest route from the player's current cell to the exit. |
@@ -154,7 +155,8 @@ reaches the exit. In a perfect maze, the route it returns is the shortest
 
 Found by reading the code and running it in jsdom. None was fixed in this ticket.
 CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
-(`docs/rendering.md`) fixed 8. Each of those entries notes the change.
+(`docs/rendering.md`) fixed 8. CAL-1236 fixed 1, 2, 4, 5 (with Auto-new off),
+6 and 7. Each of those entries notes the change.
 
 1. **Invalid sizes crash generation.** A size of 0, an empty field, a negative
    number or a decimal (for example 2.5) throws an uncaught `TypeError` in
@@ -162,20 +164,34 @@ CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
    has no `min`, `max` or `step`.
    *Since CAL-1232:* the size is checked first and a `RangeError` is thrown. The
    previous maze stays in play. The input is still not validated.
+   *Fixed in CAL-1236:* Generate accepts only whole numbers from 2 to 50
+   (`min`, `max` and `step` are set too). Anything else shows a message, keeps
+   the panel open and the current maze in play, and generates nothing.
 2. **Size 1 cannot be won.** The single cell is both start and exit. The win check
    only runs after a move, and no move is possible, so the game is stuck until
    Reset or Generate.
+   *Fixed in CAL-1236:* the smallest size accepted is 2.
 3. **Search silently fails on large mazes.** At size 120 the 10,000-iteration cap
    is hit and no route is drawn. Sizes up to 100 worked in testing. Manual sizes
    are uncapped; only auto-increment stops at 50.
    *Fixed in CAL-1232:* search is a breadth-first search with no cap.
 4. **Upper-case `W A S D` are ignored**, for example with Caps Lock on or Shift
    held.
+   *Fixed in CAL-1236:* either case moves. Keys pressed with Ctrl, Alt or Meta
+   are left to the browser.
 5. **No win feedback.** With Auto-new on, the maze is simply replaced. With it
    off, nothing indicates a win.
+   *Fixed in CAL-1236 for Auto-new off:* a "Maze complete!" banner appears, with
+   Restart and New maze buttons. It stays until one of them, Reset or Generate.
+   With Auto-new on, the next maze still starts with no message.
 6. **Reset uses unsaved input.** Reset generates at whatever is typed in the
    settings field, even if Generate was never pressed.
+   *Fixed in CAL-1236:* Reset now restarts the current maze (same layout,
+   player back at the start, route hidden). A new header button makes a new
+   layout at the size in play. Only Generate applies a typed size. Reopening the
+   settings shows the size in play.
 7. **Keyboard moves the player while the settings panel covers the maze.**
+   *Fixed in CAL-1236:* movement keys are ignored while the panel is open.
 8. **Canvas ignores `devicePixelRatio`.** Walls render blurry on high-DPI phones
    and laptops. This was inferred from the code and needs checking on a device.
    *Fixed in CAL-1235:* the backing store is scaled by `devicePixelRatio`

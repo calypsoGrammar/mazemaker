@@ -34,20 +34,26 @@ class Player
     this.CheckWin();
   }
 
+  // Reaching the exit starts the next maze with Auto-new on, one size larger
+  // with Auto-increment too (up to MAX_SIZE). With Auto-new off the maze is
+  // marked complete and the player stays on the exit.
   CheckWin()
   {
-    if(this.cell === exitCell)
+    if(this.cell !== exitCell || completed) return;
+    if(autoNew)
     {
-      if(autoNew)
+      if(increment && Math.max(width, height) < MAX_SIZE)
       {
-        if(increment && width < 50)
-        {
-          width++;
-          height++;
-          display001.value = width;
-        }
-        NewMaze();
+        width++;
+        height++;
+        display001.value = width;
       }
+      NewMaze();
+    }
+    else
+    {
+      completed = true;
+      ShowCompletion();
     }
   }
 }
@@ -57,10 +63,22 @@ class Player
 const generateMaze = document.getElementById("generateMaze");
 generateMaze.onclick = function () { GenerateCustomMaze(); };
 
-// RESET TO DEFAULT
+// RESTART THE CURRENT MAZE
 
 const ResetButton = document.getElementById("ResetButton");
-ResetButton.onclick = function () { NewMaze(); };
+ResetButton.onclick = function () { Restart(); };
+
+// NEW LAYOUT AT THE CURRENT SIZE
+
+const NewMazeButton = document.getElementById("NewMazeButton");
+NewMazeButton.onclick = function () { NewMaze(); };
+
+// COMPLETION STATE (Auto-new off)
+
+const completeBanner = document.getElementById("completeBanner");
+completeBanner.style.display = 'none';
+document.getElementById("completeRestart").onclick = function () { Restart(); };
+document.getElementById("completeNew").onclick = function () { NewMaze(); };
 
 // HIDE CONTROLS
 
@@ -88,11 +106,15 @@ SearchButton.onclick = function () { Find(); };
 
 // CUSTOM MENU INPUT
 
+const display001 = document.getElementById("display001");
+const sizeError = document.getElementById("sizeError");
+sizeError.style.display = 'none';
+
 const aNew = document.getElementById("autonew");
-aNew.onclick = function () { AutoNew(); };
+aNew.onchange = function () { ReadToggles(); };
 
 const aIncrement = document.getElementById("autoincrement");
-aIncrement.onclick = function () { AutoIncrement(); };
+aIncrement.onchange = function () { ReadToggles(); };
 
 // TOUCHPAD CONTROLS
 
@@ -113,6 +135,10 @@ const renderer = new CanvasRenderer(canvas);
 
 // GAME VARIABLES
 
+// Sizes the settings accept, in cells per side.
+const MIN_SIZE = 2;
+const MAX_SIZE = 50;
+
 let width, height, autoNew, increment, factor;
 // topology: the cells and their neighbours. maze: the passages carved through it.
 // geometry: where the topology's cells are drawn.
@@ -125,12 +151,27 @@ let exitCell = 0;
 // next maze.
 let route = [];
 let showRoute = false;
+// True once the player reaches the exit with Auto-new off. The player can
+// still move; the maze stays complete until Restart or a new maze.
+let completed = false;
 let player = new Player();
 
 function ToggleSettings()
 {
-  toggleS = !toggleS;
-  if(toggleS) settingsMenu.style.display = '';
+  SetSettingsOpen(!toggleS);
+}
+
+// Opening the panel shows the size in play; a size typed but not generated
+// is discarded when the panel closes.
+function SetSettingsOpen(open)
+{
+  toggleS = open;
+  if(toggleS)
+  {
+    display001.value = width;
+    sizeError.style.display = 'none';
+    settingsMenu.style.display = '';
+  }
   else settingsMenu.style.display = 'none';
 }
 
@@ -138,49 +179,85 @@ function ToggleSettings()
 
 function DefaultSettings()
 {
-	display001.value = 5;
-
-  width = 5;
-  height = 5;
+  display001.value = 5;
+  display001.min = MIN_SIZE;
+  display001.max = MAX_SIZE;
+  display001.step = 1;
 
   FitCanvas();
-  
-  autoNew = true;
-  increment = true;
+
   aNew.checked = true;
   aIncrement.checked = true;
-  
-  NewMaze();
+  ReadToggles();
+
+  StartMaze(5, 5);
 }
 
-function AutoNew()
-{
-  autoNew = !autoNew;
-}
-
-function AutoIncrement()
-{
-  increment = !increment;
-}
-
-function GenerateCustomMaze()
+// Auto-new and Auto-increment take effect as soon as they are changed.
+function ReadToggles()
 {
   autoNew = aNew.checked;
   increment = aIncrement.checked;
-
-  ToggleSettings();
-
-  NewMaze();
 }
 
+// The side typed in the size field as an integer from MIN_SIZE to MAX_SIZE,
+// or null for anything else (empty, negative, decimal, exponent, out of range).
+function ParseSize(text)
+{
+  const value = String(text).trim();
+  if(!/^[0-9]+$/.test(value)) return null;
+  const size = Number(value);
+  return size >= MIN_SIZE && size <= MAX_SIZE ? size : null;
+}
+
+// Generate: applies the typed size and the toggles, closes the panel and makes
+// a new maze. An invalid size changes nothing and leaves the panel open with
+// a message.
+function GenerateCustomMaze()
+{
+  const size = ParseSize(display001.value);
+  if(size === null)
+  {
+    sizeError.style.display = '';
+    return;
+  }
+  ReadToggles();
+  SetSettingsOpen(false);
+  StartMaze(size, size);
+}
+
+// A new layout at the size in play.
 function NewMaze()
 {
-  const cols = Number(display001.value);
-	const rows = Number(display001.value);
+  StartMaze(width, height);
+}
 
-	autoNew = aNew.checked;
-	increment = aIncrement.checked;
+// Back to the start of the current layout; the passages are kept.
+function Restart()
+{
+  if(maze === null) return;
+  player.cell = 0;
+  route = [];
+  showRoute = false;
+  ClearCompletion();
+  Draw();
+}
 
+function ShowCompletion()
+{
+  completeBanner.style.display = '';
+}
+
+function ClearCompletion()
+{
+  completed = false;
+  completeBanner.style.display = 'none';
+}
+
+// Makes a new cols x rows maze. The UI only asks for MIN_SIZE to MAX_SIZE
+// squares; any other positive size works too.
+function StartMaze(cols, rows)
+{
   // Throws a RangeError for a size that is not a positive whole number or has
   // more than MAX_CELLS cells, before any state changes, so the previous maze
   // stays in play.
@@ -196,6 +273,7 @@ function NewMaze()
   route = [];
   showRoute = false;
   player.cell = 0;
+  ClearCompletion();
 
   Draw();
 }
@@ -232,12 +310,24 @@ function FitCanvas()
 
 // KEYBOARD
 
+// Arrow keys and WASD in either case (Shift or Caps Lock).
+const KEY_DIRECTIONS = {
+  arrowup: "UP", w: "UP",
+  arrowdown: "DOWN", s: "DOWN",
+  arrowleft: "LEFT", a: "LEFT",
+  arrowright: "RIGHT", d: "RIGHT",
+};
+
 document.onkeydown = function(event)
 {
-  if(event.key === "d" || event.key === "ArrowRight") player.Move("RIGHT");
-  if(event.key === "s"  || event.key === "ArrowDown") player.Move("DOWN");
-  if(event.key === "a"  || event.key === "ArrowLeft") player.Move("LEFT");
-  if(event.key === "w"  || event.key === "ArrowUp") player.Move("UP");
+  // Leave shortcuts (Ctrl+W, Cmd+D, ...) to the browser, and keys to the
+  // settings panel while it covers the maze.
+  if(event.ctrlKey || event.metaKey || event.altKey) return;
+  if(toggleS) return;
+  const direction = KEY_DIRECTIONS[String(event.key).toLowerCase()];
+  if(direction === undefined) return;
+  event.preventDefault();
+  player.Move(direction);
 }
 
 // TOUCHPAD
