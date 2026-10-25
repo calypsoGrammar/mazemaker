@@ -1,6 +1,6 @@
 "use strict";
 
-import { squareTopology, growingTree, shortestPath, MAX_CELLS } from './maze/index.js';
+import { squareTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer } from './render/index.js';
 
 function CalculateVh()
@@ -15,23 +15,83 @@ window.addEventListener('orientationchange', CalculateVh);
 
 // GAME classes
 
+// How long the player takes to cross one passage, in milliseconds. Every step
+// of a run takes the same time.
+const STEP_MS = 70;
+
 // The player's position is a cell ID; where it is drawn comes from the layout.
+// One move runs along a corridor: through the passage chosen, then on while
+// there is a single way forward, one animated step per passage. `cell` is the
+// cell last reached; while a run is under way `run` holds the cells still to
+// come and the progress of the current step.
 class Player
 {
   constructor()
   {
     this.cell = 0;
+    this.run = null;
+    this.frame = null;
   }
 
+  get moving()
+  {
+    return this.run !== null;
+  }
+
+  // Moves are ignored while a run is under way.
   Move(DIRECTION)
   {
-    if(maze === null) return;
+    if(maze === null || this.moving) return;
     const next = maze.move(this.cell, DIRECTION);
     if(next === null) return;
-    this.cell = next;
-    UpdateRoute();
+    this.run = { cells: corridor(maze, this.cell, next, { stopAt: exitCell }), start: null, progress: 0 };
+    this.frame = requestAnimationFrame((time) => this.Animate(time));
     Draw();
-    this.CheckWin();
+  }
+
+  // One animation frame. A step ends when STEP_MS have passed since it began,
+  // and the next step begins when it should have, so a run keeps a steady
+  // pace. After a long stall the next step begins now instead, so no step is
+  // skipped without being drawn on its way.
+  Animate(time)
+  {
+    this.frame = null;
+    const run = this.run;
+    if(run === null) return;
+    if(run.start === null) run.start = time;
+    run.progress = (time - run.start) / STEP_MS;
+    if(run.progress >= 1)
+    {
+      this.cell = run.cells.shift();
+      UpdateRoute();
+      if(run.cells.length === 0)
+      {
+        this.run = null;
+        Draw();
+        this.CheckWin();
+        return;
+      }
+      run.start += STEP_MS;
+      if(time - run.start >= STEP_MS) run.start = time;
+      run.progress = (time - run.start) / STEP_MS;
+    }
+    Draw();
+    this.frame = requestAnimationFrame((t) => this.Animate(t));
+  }
+
+  // Ends a run where it is, leaving the player on the last cell reached.
+  Stop()
+  {
+    if(this.frame !== null) cancelAnimationFrame(this.frame);
+    this.frame = null;
+    this.run = null;
+  }
+
+  // What the renderer draws: the cell, or the step under way.
+  get marker()
+  {
+    if(this.run === null) return this.cell;
+    return { from: this.cell, to: this.run.cells[0], progress: this.run.progress };
   }
 
   // Reaching the exit starts the next maze with Auto-new on, one size larger
@@ -236,6 +296,7 @@ function NewMaze()
 function Restart()
 {
   if(maze === null) return;
+  player.Stop();
   player.cell = 0;
   route = [];
   showRoute = false;
@@ -272,6 +333,7 @@ function StartMaze(cols, rows)
   exitCell = topology.size - 1;
   route = [];
   showRoute = false;
+  player.Stop();
   player.cell = 0;
   ClearCompletion();
 
@@ -284,7 +346,7 @@ function StartMaze(cols, rows)
 function Draw()
 {
   if(maze === null) return;
-  renderer.render({ maze, geometry, player: player.cell, goal: exitCell, path: route });
+  renderer.render({ maze, geometry, player: player.marker, goal: exitCell, path: route });
 }
 
 // Sizes the canvas to 90% of the smaller of the window width and the game area

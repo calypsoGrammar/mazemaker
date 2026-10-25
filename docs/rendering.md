@@ -52,6 +52,12 @@ width and draws, in order:
    around its centre. On the square grid these are the same half-cell
    squares as before.
 
+While the player moves (CAL-1237), `player` is `{ from, to, progress }`
+instead of a cell. The marker is drawn `progress` (0 to 1) of the way from
+`from` to `to`. When both cells' markers have the same number of corners,
+each corner moves in a straight line. Otherwise, the `from` marker slides
+between the two centres.
+
 The renderer never calls `link` or `unlink`, and it does not change the scene
 it is given. The tests check this with a maze that throws on any change.
 

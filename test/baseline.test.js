@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assertPerfectMaze, loadGame, neighbours, shortestRoute } from './harness.js';
+import { assertPerfectMaze, corridorRun, followRoute, loadGame, neighbours, shortestRoute } from './harness.js';
 
 const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 const WASD = { UP: 'w', DOWN: 's', LEFT: 'a', RIGHT: 'd' };
@@ -17,8 +17,19 @@ async function gameOfSize(n, { autoNew = true, increment = true, seed = n } = {}
   return g;
 }
 
+// Presses each direction in turn, letting each run finish; returns the cells
+// the last run passed through.
 function walk(g, dirs, keys = ARROWS) {
-  for (const d of dirs) g.key(keys[d]);
+  let trail = [];
+  for (const d of dirs) trail = g.key(keys[d]);
+  return trail;
+}
+
+// Follows the shortest route from the player to `to` with as few presses as
+// corridor runs allow.
+function walkTo(g, to, keys = ARROWS) {
+  const route = shortestRoute(g.state.maze, g.state.height, g.state.player.cell, to);
+  return followRoute(g, route.cells, (d) => g.key(keys[d]));
 }
 
 test('first load: 5x5 maze, player top-left, exit bottom-right, settings hidden', async () => {
@@ -53,7 +64,8 @@ test('generation produces a perfect maze (spanning tree) for every size from 2 t
 
 test('search (magnifier) highlights the shortest route from the player to the exit', async () => {
   for (const n of [2, 5, 10, 25, 50]) {
-    const g = await gameOfSize(n);
+    // Auto-new off: a run off the start may reach the exit.
+    const g = await gameOfSize(n, { autoNew: false });
     // Move off the start so the route begins at the player's current cell.
     const [first] = neighbours(g.state.maze, n, 0);
     walk(g, [first[0]]);
@@ -72,30 +84,31 @@ test('search (magnifier) highlights the shortest route from the player to the ex
 });
 
 // Changed in CAL-1234: the route used to stay as drawn when the player moved.
-test('after search, the highlighted route is recomputed from the player after every move', async () => {
+// Changed in CAL-1237: a move runs along the corridor, and the route follows
+// every cell of the run.
+test('after search, the highlighted route is recomputed from the player after every step', async () => {
   const g = await gameOfSize(10, { autoNew: false });
   // Before search, moving does not show a route.
   const [first] = neighbours(g.state.maze, 10, 0);
   walk(g, [first[0]]);
   assert.deepEqual([...g.state.route], []);
-  walk(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[first[0]]]);
+  g.click('ResetButton');
   g.click('SearchButton');
   assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, 0, 99).cells);
-  // Walk every open passage out of the start, including ones off the route
-  // into dead ends, and back.
-  for (const [dir, cell] of neighbours(g.state.maze, 10, 0)) {
-    walk(g, [dir]);
-    assert.equal(g.state.player.cell, cell);
-    assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, cell, 99).cells);
-    walk(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[dir]]);
-    assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, 0, 99).cells);
+  // Run down every open passage out of the start, including ones off the
+  // route into dead ends; the route is recomputed at every cell on the way.
+  for (const [dir] of neighbours(g.state.maze, 10, 0)) {
+    g.press(ARROWS[dir]);
+    while (g.pendingFrames > 0) {
+      g.tick(g.state.stepMs / 2);
+      assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 10, g.state.player.cell, 99).cells);
+    }
+    assert.equal(g.state.player.cell, corridorRun(g.state.maze, 10, 0, dir, 99).at(-1));
+    g.click('ResetButton');
+    g.click('SearchButton');
   }
-  // Following the route shortens it one cell at a time, down to the exit.
-  const { dirs } = shortestRoute(g.state.maze, 10, 0, 99);
-  dirs.forEach((d, k) => {
-    walk(g, [d]);
-    assert.equal(g.state.route.length, dirs.length - k);
-  });
+  // Following the route shortens it, down to the exit.
+  walkTo(g, 99);
   assert.deepEqual([...g.state.route], [99]);
 });
 
@@ -111,23 +124,26 @@ test('a new maze clears the route and stops recomputing it', async () => {
 });
 
 for (const [name, input] of [
-  ['arrow keys', (g, dirs) => walk(g, dirs, ARROWS)],
-  ['WASD keys', (g, dirs) => walk(g, dirs, WASD)],
-  ['on-screen pad', (g, dirs) => dirs.forEach((d) => g.click(PAD[d]))],
+  ['arrow keys', (g, d) => g.key(ARROWS[d])],
+  ['WASD keys', (g, d) => g.key(WASD[d])],
+  ['on-screen pad', (g, d) => { g.click(PAD[d]); return g.settle(); }],
 ]) {
-  test(`${name} move one cell through open passages only`, async () => {
+  // Changed in CAL-1237: a move used to go one cell; it now runs along the corridor.
+  test(`${name} move through open passages only`, async () => {
     const g = await gameOfSize(8, { autoNew: false });
     const { maze } = g.state;
-    // From the start, every walled direction is refused and every open one moves.
+    // From the start, every walled direction is refused and every open one
+    // runs to the end of its corridor.
     for (const [dir, delta] of [['UP', -1], ['DOWN', 1], ['LEFT', -8], ['RIGHT', 8]]) {
       const open = neighbours(maze, 8, 0).some(([d]) => d === dir);
-      input(g, [dir]);
-      assert.equal(g.state.player.cell, open ? delta : 0, `${dir} from start`);
-      if (open) input(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[dir]]);
-      assert.equal(g.state.player.cell, 0);
+      const trail = input(g, dir);
+      if (open) {
+        assert.equal(trail[1], delta, `${dir} from start`);
+        assert.deepEqual(trail, [0, ...corridorRun(maze, 8, 0, dir, 63)], `${dir} from start`);
+      } else assert.deepEqual(trail, [0], `${dir} from start`);
+      g.click('ResetButton');
     }
-    const route = shortestRoute(maze, 8, 0, 63);
-    input(g, route.dirs);
+    followRoute(g, shortestRoute(maze, 8, 0, 63).cells, (d) => input(g, d));
     assert.equal(g.state.player.cell, 63);
   });
 }
@@ -136,14 +152,14 @@ for (const [name, input] of [
 test('upper-case WASD (Shift or Caps Lock) moves like lower case', async () => {
   const g = await gameOfSize(6, { autoNew: false });
   const [[dir, cell]] = neighbours(g.state.maze, 6, 0);
-  g.key(WASD[dir].toUpperCase());
-  assert.equal(g.state.player.cell, cell);
+  const trail = g.key(WASD[dir].toUpperCase());
+  assert.equal(trail[1], cell);
 });
 
 test('reaching the exit with auto-new and auto-increment starts a maze one size larger', async () => {
   const g = await gameOfSize(5);
   const old = g.state.maze;
-  walk(g, shortestRoute(old, 5, 0, 24).dirs);
+  walkTo(g, 24);
   assert.equal(g.state.topology.size, 36);
   assert.equal(g.document.getElementById('display001').value, '6');
   assert.equal(g.state.player.cell, 0);
@@ -151,21 +167,21 @@ test('reaching the exit with auto-new and auto-increment starts a maze one size 
 
 test('auto-increment stops at size 50', async () => {
   const g = await gameOfSize(50);
-  walk(g, shortestRoute(g.state.maze, 50, 0, 2499).dirs);
+  walkTo(g, 2499);
   assert.equal(g.state.width, 50);
   assert.equal(g.state.player.cell, 0);
 });
 
 test('reaching the exit with auto-new on and auto-increment off starts a new maze of the same size', async () => {
   const g = await gameOfSize(5, { increment: false });
-  walk(g, shortestRoute(g.state.maze, 5, 0, 24).dirs);
+  walkTo(g, 24);
   assert.equal(g.state.topology.size, 25);
   assert.equal(g.state.player.cell, 0);
 });
 
 test('reaching the exit with auto-new off leaves the player on the exit', async () => {
   const g = await gameOfSize(5, { autoNew: false });
-  walk(g, shortestRoute(g.state.maze, 5, 0, 24).dirs);
+  walkTo(g, 24);
   assert.equal(g.state.player.cell, 24);
   assert.equal(g.state.topology.size, 25);
 });
@@ -206,8 +222,9 @@ test('reset (undo icon) restarts the current maze; the new-maze button makes ano
 
 test('controller button hides the on-screen pad and enlarges the canvas, keeping the player cell', async () => {
   const g = await gameOfSize(6, { autoNew: false });
-  const [[dir, cell]] = neighbours(g.state.maze, 6, 0);
-  walk(g, [dir]);
+  const [[dir]] = neighbours(g.state.maze, 6, 0);
+  const cell = walk(g, [dir]).at(-1);
+  assert.notEqual(cell, 0);
   const small = g.state.canvas.width;
   g.click('ControllerButton');
   assert.equal(g.document.getElementById('footerControls').style.display, 'none');

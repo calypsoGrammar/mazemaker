@@ -10,10 +10,10 @@ the square game, and keeps input and the player. Drawing is in
 | Topology | `maze/topology.js` | Which cells exist and which are neighbours. |
 | Passages | `maze/maze.js` (`Maze`) | Which neighbouring cells are joined. Any other pair is walled. |
 | Generation | `maze/generate.js` (`growingTree`, strategies) | Cell IDs and neighbour lists only. |
-| Navigation | `maze/navigate.js` (`shortestPath`, `reachable`, `isPerfect`) | Traversable neighbours only. |
+| Navigation | `maze/navigate.js` (`shortestPath`, `reachable`, `isPerfect`, `corridor`) | Traversable neighbours only. |
 | Rendering | `render/` (see `docs/rendering.md`) | Cell shapes for each topology, the viewport and the Canvas 2D renderer. |
 | Input | `main.js` | The key → direction mapping. |
-| Player | `main.js` (`Player.cell`) | A cell ID. |
+| Player | `main.js` (`Player.cell`, `Player.run`) | A cell ID, and the corridor run under way. |
 
 ## Topology
 
@@ -108,6 +108,29 @@ In the game, Search calls it from `player.cell` to the exit. After that, every
 move recomputes the route from the player's new cell, until the next maze is
 made. An unreachable exit shows no route. The solver has no access to the
 canvas: `main.js` draws the cells it returns.
+
+## Corridor runs (CAL-1237 / MM-V1-08)
+
+`corridor(maze, from, next, { stopAt })` gives the cells a move passes
+through after leaving `from` for its neighbour `next`, ending with the cell
+where it stops. The run goes on while the cell it has reached has exactly one
+onward passage, not counting the passage it came in by. It therefore follows
+straight corridors and forced turns in the same way, on any topology. It stops
+at the first cell with two or more onward passages (a junction), at a dead end,
+at `stopAt`, or back at `from` round a loop with no junctions. It reads only
+`traversableNeighbours`, so it never crosses a wall. It throws a `RangeError`
+when no passage joins `from` and `next`.
+
+In the game, a direction picks the passage out of the player's cell
+(`maze.move`) and `corridor` gives the run, with the exit as `stopAt`. The
+player then crosses one passage at a time, each step animated over `STEP_MS`
+(70 ms, a constant in `main.js`) with `requestAnimationFrame`. Steps keep a
+steady pace whatever the frame rate. After a long stall the next step starts
+from the beginning rather than being skipped. `Player.cell` changes when a
+step ends, and the route shown by Search is recomputed then. Win checks
+(completion, Auto-new, Auto-increment) run only when the whole run has ended.
+Movement input is ignored while a run is under way. Restart, New maze and
+Generate stop it at once.
 
 ## Changes in the game
 
