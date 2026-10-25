@@ -7,67 +7,84 @@
     <link rel="stylesheet" href="./src/stylesheets/style.css">
     <title>Maze Maker</title>
   </head>
-  <body class='min-h-screen max-h-screen'>
+  <body class="bg-white text-neutral-900 antialiased overflow-hidden min-h-screen max-h-screen">
 
-      <div class="flex flex-row justify-center items-center border-b border-black">
-        <div class="flex w-full max-w-7xl h-full flex-row justify-center mx-auto sm:px-6 lg:px-8" style="height:calc(var(--vh) * 7.5)">
-          <button id="ResetButton" aria-label="Restart this maze" title="Restart this maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/undoLight.svg" alt=""></button>
-          <button id="NewMazeButton" aria-label="New maze" title="New maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/newLight.svg" alt=""></button>
-          <button id="ControllerButton" aria-label="Show or hide the movement controls" title="Show or hide the movement controls" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/gamesLight.svg"></button>
-          <button id="OptionsButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/optionsLight.svg"></button>
-          <button id="SearchButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/searchLight.svg"></button>
-          <button id="ResetViewButton" aria-label="Fit maze to screen" title="Fit maze to screen" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/fitLight.svg" alt=""></button>
-        </div>
+      <nav id="toolbar" aria-label="Maze actions">
+        <button id="ResetButton" type="button" class="tool" aria-label="Restart maze" title="Restart maze">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v5h5"/><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/></svg>
+        </button>
+        <button id="NewMazeButton" type="button" class="tool" aria-label="New maze" title="New maze">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l10 10h4"/><path d="M3 17h4L17 7h4"/><path d="M18 4l3 3-3 3"/><path d="M18 14l3 3-3 3"/></svg>
+        </button>
+        <span class="tool-gap" aria-hidden="true"></span>
+        <button id="SearchButton" type="button" class="tool" aria-label="Show route" title="Show route" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M7 19h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/></svg>
+        </button>
+        <button id="ControllerButton" type="button" class="tool" aria-label="Movement controls" title="Movement controls" aria-pressed="true" aria-controls="footerControls">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg>
+        </button>
+        <button id="ResetViewButton" type="button" class="tool" aria-label="Fit maze to screen" title="Fit maze to screen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5"/><path d="M15 4h5v5"/><path d="M20 15v5h-5"/><path d="M9 20H4v-5"/></svg>
+        </button>
+        <span class="tool-gap" aria-hidden="true"></span>
+        <button id="OptionsButton" type="button" class="tool" aria-label="Settings" title="Settings" aria-expanded="false" aria-controls="settingsMenu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10"/><path d="M18 7h2"/><path d="M4 17h2"/><path d="M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        </button>
+      </nav>
+
+      <div id="settingsMenu" role="group" aria-label="Settings">
+
+        <label for="mazeShape" class="setting-label">Shape</label>
+        <select id="mazeShape" name="mazeShape" class="setting-field">
+          <option value="square">Square</option>
+          <option value="hex">Hexagon</option>
+          <option value="triangle">Triangle</option>
+          <option value="polar">Circle</option>
+        </select>
+
+        <label for="mazeMode" class="setting-label">Mode</label>
+        <select id="mazeMode" name="mazeMode" class="setting-field">
+          <option value="mixed">Mixed</option>
+          <option value="newest">Winding</option>
+          <option value="oldest">Fanning</option>
+          <option value="random">Branching</option>
+        </select>
+
+        <label for="display001" class="setting-label">Size</label>
+        <input type="number" id="display001" name="display001" min="2" max="50" step="1" inputmode="numeric" aria-describedby="sizeError" class="setting-field">
+
+        <p id="sizeError" role="alert" class="col-span-2 text-sm text-red-700">Enter a whole number from 2 to 50.</p>
+
+        <label for="autonew" class="setting-label">Auto-new</label>
+        <input type="checkbox" id="autonew" name="autonew" class="setting-check" checked>
+
+        <label for="autoincrement" class="setting-label">Auto-increment</label>
+        <input type="checkbox" id="autoincrement" name="autoincrement" class="setting-check" checked>
+
+        <button id="generateMaze" type="button" class="col-span-2 setting-action">Generate</button>
+
       </div>
-    
-      <div id="settingsMenu" class="fixed z-10 bg-white flex w-full h-full flex-col justify-start mx-auto overflow-y-auto">
-    
-        <div class="mx-auto mb-4 mt-8">
-          <label for="display001" class="mr-8">Maze Size:</label>
-          <input type="number" id="display001" name="display001" min="2" max="50" step="1" inputmode="numeric" aria-describedby="sizeError" class="text-center w-24 rounded border border-black">
-        </div>
 
-        <p id="sizeError" role="alert" class="mx-auto text-red-700">Enter a whole number from 2 to 50.</p>
-
-        <div class="mx-auto my-4">
-          <label for="mazeShape" class="mr-8">Shape:</label>
-          <select id="mazeShape" name="mazeShape" class="text-center w-24 rounded border border-black bg-white">
-            <option value="square">Square</option>
-            <option value="hex">Hexagon</option>
-            <option value="triangle">Triangle</option>
-            <option value="polar">Circle</option>
-          </select>
-        </div>
-
-        <div class="mx-auto my-4">
-          <label for="autonew" class="mr-8">Auto-new:</label>
-          <input type="checkbox" id="autonew" name="autonew" class='hover:scale-105' checked>
-        </div>
-    
-        <div class="mx-auto my-4">
-          <label for="autoincrement" class="mr-8">Auto-increment:</label>
-          <input type="checkbox" id="autoincrement" name="autoincrement" class='hover:scale-105' checked>
-        </div>
-    
-        <button id="generateMaze" class="w-24 h-12 mx-auto my-4 active:scale-95 border border-black rounded-lg hover:scale-105">Generate</button>
-    
-      </div>
-    
       <div id="gameDiv">
-        <div id="completeBanner" role="status" class="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-2 bg-white border border-black rounded-lg px-4 py-2">
-          <span>Maze complete!</span>
-          <button id="completeRestart" class="px-2 border border-black rounded-lg active:scale-95">Restart</button>
-          <button id="completeNew" class="px-2 border border-black rounded-lg active:scale-95">New maze</button>
+        <div id="completeBanner" role="status">
+          <svg class="banner-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>
+          <span class="sr-only">Maze complete</span>
+          <button id="completeRestart" type="button" class="tool" aria-label="Restart maze" title="Restart maze">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v5h5"/><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/></svg>
+          </button>
+          <button id="completeNew" type="button" class="tool" aria-label="New maze" title="New maze">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l10 10h4"/><path d="M3 17h4L17 7h4"/><path d="M18 4l3 3-3 3"/><path d="M18 14l3 3-3 3"/></svg>
+          </button>
         </div>
         <div id="canvasHolder">
-          <canvas id="ctx" class="mx-auto"></canvas>
+          <canvas id="ctx" class="mx-auto" role="img" aria-label="Maze"></canvas>
         </div>
       </div>
-    
+
       <div id="footerControls">
-    
+
         <svg id="directionPad" aria-label="Movement controls"></svg>
-    
+
       </div>
   </body>
   <script type='module' src="./src/javascripts/main.js"></script>

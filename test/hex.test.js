@@ -55,7 +55,7 @@ test('settings: the shape list offers Square, Hexagon, Triangle and Circle, and 
   const g = await loadGame();
   const select = g.document.getElementById('mazeShape');
   assert.deepEqual([...select.options].map((o) => [o.value, o.textContent]), [['square', 'Square'], ['hex', 'Hexagon'], ['triangle', 'Triangle'], ['polar', 'Circle']]);
-  assert.equal(g.document.querySelector('label[for="mazeShape"]').textContent, 'Shape:');
+  assert.equal(g.document.querySelector('label[for="mazeShape"]').textContent, 'Shape');
   assert.equal(g.state.shape, 'square');
   assert.equal(g.state.topology.kind, 'square');
 });

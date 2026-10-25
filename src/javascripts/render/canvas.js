@@ -9,11 +9,14 @@
 
 import { Viewport } from './viewport.js';
 
+// Dark walls on the page's white, with a blue player and an orange goal: the
+// two markers differ in hue and in lightness, so they stay apart for common
+// colour-vision deficiencies too. The route is a pale tint of the player.
 export const DEFAULT_COLOURS = Object.freeze({
-  wall: 'rgba(50, 50, 60, 1)',
-  player: 'rgba(150, 250, 150, 1)',
-  goal: 'rgba(250, 150, 150, 1)',
-  path: 'rgba(46, 97, 113, 0.35)',
+  wall: 'rgba(23, 23, 23, 1)',
+  player: 'rgba(37, 99, 235, 1)',
+  goal: 'rgba(249, 115, 22, 1)',
+  path: 'rgba(37, 99, 235, 0.15)',
 });
 
 // Markers are the cell's outline shrunk towards its centre by this factor.

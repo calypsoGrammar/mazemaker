@@ -2,6 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
+/* One look for every action (CAL-1243, docs/interface.md): a square icon
+   button with a line icon in the text colour. Hover tints the background,
+   keyboard focus draws a ring, and a pressed toggle is filled. Only colours
+   change, briefly: nothing moves, and there is no depth or ornament. */
+
+@layer components{
+  .tool{
+    @apply inline-flex items-center justify-center shrink-0 w-10 h-10 rounded-md text-neutral-700 transition-colors duration-150;
+  }
+
+  .tool svg{
+    @apply w-5 h-5;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .tool:hover{
+    @apply bg-neutral-100 text-neutral-900;
+  }
+
+  .tool:focus{
+    outline: none;
+  }
+
+  .tool:focus-visible{
+    @apply ring-2 ring-neutral-900 text-neutral-900;
+  }
+
+  .tool[aria-pressed="true"],
+  .tool[aria-expanded="true"]{
+    @apply bg-neutral-900 text-white;
+  }
+
+  .tool-gap{
+    @apply w-3 shrink-0;
+  }
+
+  .setting-label{
+    @apply text-sm text-neutral-500 select-none;
+  }
+
+  .setting-field{
+    @apply w-28 h-8 px-2 text-sm text-center rounded-md border border-neutral-300 bg-white transition-colors duration-150;
+  }
+
+  .setting-check{
+    @apply justify-self-center w-4 h-4 accent-neutral-900;
+  }
+
+  .setting-field:hover,
+  .setting-check:hover{
+    @apply border-neutral-500;
+  }
+
+  .setting-field:focus,
+  .setting-check:focus,
+  .setting-action:focus{
+    outline: none;
+  }
+
+  .setting-field:focus-visible,
+  .setting-check:focus-visible,
+  .setting-action:focus-visible{
+    @apply ring-2 ring-neutral-900 ring-offset-1;
+  }
+
+  .setting-action{
+    @apply h-8 mt-1 text-sm rounded-md bg-neutral-900 text-white transition-colors duration-150;
+  }
+
+  .setting-action:hover{
+    @apply bg-neutral-700;
+  }
+}
+
+#toolbar{
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: calc(var(--vh) * 7.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+}
+
+/* On a short landscape screen the toolbar is under 40px; its buttons shrink
+   with it and stay square. */
+#toolbar .tool{
+  width: auto;
+  height: min(2.5rem, 100%);
+  aspect-ratio: 1 / 1;
+}
+
+/* Settings are secondary: a small panel under the toolbar, closed by default.
+   The maze stays in view around it. */
+#settingsMenu{
+  @apply fixed z-10 left-1/2 -translate-x-1/2 grid grid-cols-2 items-center gap-x-6 gap-y-3 p-4 bg-white border border-neutral-200 rounded-lg;
+  top: calc(var(--vh) * 7.5);
+  max-height: calc(var(--vh) * 92.5);
+  overflow-y: auto;
+}
+
 #gameDiv{
   position: fixed;
   width: 100%;
@@ -10,6 +117,20 @@
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+/* Shown on a win with Auto-new off: a check mark and two actions, no text. */
+#completeBanner{
+  @apply absolute top-2 left-1/2 -translate-x-1/2 z-10 flex flex-row items-center gap-1 p-1 bg-white border border-neutral-200 rounded-lg;
+}
+
+.banner-icon{
+  @apply w-5 h-5 mx-2 text-neutral-900;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 /* The page must not scroll or zoom under canvas gestures; they pan and zoom
@@ -40,22 +161,29 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Pad buttons match the toolbar: hairline circles, dark chevrons, a tint on
+   hover or press and a dark ring for keyboard focus. */
 .pad-button{
   cursor: pointer;
 }
 
 .pad-button circle{
   fill: white;
-  stroke: black;
+  stroke: #d4d4d4;
   stroke-width: 1.5;
+  transition: fill 150ms, stroke 150ms;
 }
 
 .pad-button path{
   fill: none;
-  stroke: black;
+  stroke: #262626;
   stroke-width: 4;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.pad-button:hover circle{
+  fill: #f5f5f5;
 }
 
 .pad-button:active circle{
@@ -67,6 +195,7 @@
 }
 
 .pad-button:focus-visible circle{
+  stroke: #171717;
   stroke-width: 4;
 }
 
@@ -75,6 +204,13 @@
   opacity: 0.25;
 }
 
+.pad-button[aria-disabled="true"]:hover circle,
 .pad-button[aria-disabled="true"]:active circle{
   fill: white;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .tool, .setting-field, .setting-action, .pad-button circle{
+    transition: none;
+  }
 }
