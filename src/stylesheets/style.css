@@ -12,6 +12,12 @@
   align-items: center;
 }
 
+/* The canvas handles its own drag, pinch and wheel; the page must not scroll
+   or zoom under them. */
+#ctx{
+  touch-action: none;
+}
+
 #footerControls{
   position: fixed;
   width: 100%;

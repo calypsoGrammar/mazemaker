@@ -104,6 +104,25 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
       window.devicePixelRatio = dpr;
       window.dispatchEvent(new window.Event('resize'));
     },
+    // Fires a pointer event (pointerdown, pointermove, pointerup, ...) at the
+    // element with `id`. jsdom has no PointerEvent, so this is a MouseEvent
+    // with the pointer fields added. jsdom lays nothing out, so clientX/Y are
+    // also the position on the canvas.
+    pointer(type, { id = 'ctx', pointerId = 1, pointerType = 'touch', x = 0, y = 0, button = 0 } = {}) {
+      const event = new window.MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button });
+      Object.defineProperty(event, 'pointerId', { value: pointerId });
+      Object.defineProperty(event, 'pointerType', { value: pointerType });
+      document.getElementById(id).dispatchEvent(event);
+      return event;
+    },
+    // Fires a wheel event at the canvas, at (x, y) on it.
+    wheel({ x = 0, y = 0, deltaY = 0, deltaMode = 0, ctrlKey = false } = {}) {
+      const event = new window.WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: x, clientY: y, deltaY, deltaMode, ctrlKey });
+      document.getElementById('ctx').dispatchEvent(event);
+      return event;
+    },
+    // The view the next draw uses (zoom, pan and the world <-> screen mapping).
+    get view() { return window.__mm.renderer.viewportFor(window.__mm.geometry); },
     // The 2D context's recorded calls.
     get drawCalls() { return document.getElementById('ctx').getContext('2d').calls; },
     get randomCalls() { return randomCalls; },

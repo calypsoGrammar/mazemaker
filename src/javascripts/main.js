@@ -1,7 +1,7 @@
 "use strict";
 
 import { squareTopology, growingTree, shortestPath, MAX_CELLS } from './maze/index.js';
-import { geometryFor, CanvasRenderer } from './render/index.js';
+import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
 
 function CalculateVh()
 {
@@ -104,6 +104,11 @@ OptionsButton.onclick = function () { ToggleSettings(); };
 const SearchButton = document.getElementById("SearchButton");
 SearchButton.onclick = function () { Find(); };
 
+// FIT THE MAZE TO THE SCREEN
+
+const FitViewButton = document.getElementById("FitViewButton");
+FitViewButton.onclick = function () { ResetView(); };
+
 // CUSTOM MENU INPUT
 
 const display001 = document.getElementById("display001");
@@ -132,6 +137,15 @@ rightButton.onclick = function () { TouchPad('RIGHT'); };
 const gameDiv = document.getElementById("gameDiv");
 const canvas = document.getElementById("ctx");
 const renderer = new CanvasRenderer(canvas);
+
+// PAN AND ZOOM
+// Dragging the canvas pans, pinching or the wheel zooms. Only the view
+// changes: the maze, the player and the route are kept.
+
+attachViewGestures(canvas, {
+  getViewport: function () { return geometry === null ? null : renderer.viewportFor(geometry); },
+  setView: function (viewport) { renderer.setView(viewport); Draw(); },
+});
 
 // GAME VARIABLES
 
@@ -274,7 +288,16 @@ function StartMaze(cols, rows)
   showRoute = false;
   player.cell = 0;
   ClearCompletion();
+  // A new maze starts fitted to the screen.
+  renderer.setView({ zoom: 1, panX: 0, panY: 0 });
 
+  Draw();
+}
+
+// Fits and centres the maze; the game state is kept.
+function ResetView()
+{
+  renderer.setView({ zoom: 1, panX: 0, panY: 0 });
   Draw();
 }
 
@@ -304,6 +327,8 @@ function FitCanvas()
   squareSize = squareSize * 0.9;
 
   renderer.resize(squareSize, squareSize, window.devicePixelRatio || 1);
+  // Keeps the zoom; the pan may need limiting for the new size.
+  if(geometry !== null) renderer.setView(renderer.viewportFor(geometry).clamped());
 }
 
 // PLAYER MOVEMENT

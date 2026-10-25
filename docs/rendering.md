@@ -62,8 +62,30 @@ fits `bounds` into `width × height` CSS pixels less `padding`, centres it,
 then zooms about the canvas centre and pans by CSS pixels. `toScreen` and
 `toWorld` convert points, and `matrix()` gives the world → backing-store
 transform for `ctx.setTransform`. Viewports are immutable, and `with({...})`
-returns a changed copy. There is no pan or zoom input yet. `setView` and
-`toWorld` are there for that later work.
+returns a changed copy.
+
+`clamped()` keeps a view within limits: zoom from `MIN_ZOOM` (1, the fitted
+view) to `MAX_ZOOM` (8), and pan only until an edge of the bounds reaches the
+matching padded edge of the canvas, so at zoom 1 the maze is always centred.
+`pannedBy(dx, dy)` and `zoomedAt(factor, point)` return clamped copies;
+`zoomedAt` keeps the world point under `point` in place. `reset()` is the
+fitted, centred view.
+
+## Pan and zoom (CAL-1239 / MM-V1-10)
+
+`attachViewGestures(canvas, { getViewport, setView })` in
+`render/gestures.js` listens for pointer and wheel events on the canvas only:
+
+- one finger, or the main mouse button, drags the view;
+- two fingers pinch to zoom about their midpoint and pan as it moves;
+- the mouse wheel and trackpad gestures zoom about the pointer.
+
+The canvas has `touch-action: none`, so the browser does not scroll or zoom
+the page under these gestures. Gestures only call `renderer.setView` and
+redraw; they never move the player. The direction pad is outside the canvas,
+so touching it never pans. The *Fit maze to screen* button in the header
+resets the view. A new maze starts fitted; restarting, moving and searching
+keep the view. On a resize the zoom is kept and the pan is limited again.
 
 ## Resizing
 
