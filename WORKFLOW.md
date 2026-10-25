@@ -56,7 +56,7 @@ archon:
   merge:
     # A person merges. Switch to auto once main requires a CI check on
     # up-to-date branches and the repository allows auto-merge.
-    policy: manual
+    policy: auto
   models:
     # Profiles come from the service's shared model catalogue (archon-v3
     # docs/operations.md, Models); a Model label on an issue picks another.
