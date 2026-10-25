@@ -152,17 +152,22 @@ reaches the exit. In a perfect maze, the route it returns is the shortest
 ## Existing defects
 
 Found by reading the code and running it in jsdom. None was fixed in this ticket.
+CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. Each of
+those entries notes the change.
 
 1. **Invalid sizes crash generation.** A size of 0, an empty field, a negative
    number or a decimal (for example 2.5) throws an uncaught `TypeError` in
    `MakeMaze`. The canvas is left blank until a valid size is generated. The input
    has no `min`, `max` or `step`.
+   *Since CAL-1232:* the size is checked first and a `RangeError` is thrown. The
+   previous maze stays in play. The input is still not validated.
 2. **Size 1 cannot be won.** The single cell is both start and exit. The win check
    only runs after a move, and no move is possible, so the game is stuck until
    Reset or Generate.
 3. **Search silently fails on large mazes.** At size 120 the 10,000-iteration cap
    is hit and no route is drawn. Sizes up to 100 worked in testing. Manual sizes
    are uncapped; only auto-increment stops at 50.
+   *Fixed in CAL-1232:* search is a breadth-first search with no cap.
 4. **Upper-case `W A S D` are ignored**, for example with Caps Lock on or Shift
    held.
 5. **No win feedback.** With Auto-new on, the maze is simply replaced. With it
@@ -183,6 +188,8 @@ Found by reading the code and running it in jsdom. None was fixed in this ticket
     `mousePos`, `t2`, `currentPath` and the `visited` fill in `DrawMaze` do nothing.
     `rightIndex` uses `<=` where `<` is meant, but a wall always blocks that move.
     None of this affects gameplay today.
+    *Since CAL-1232:* `mousePos`, `t2`, `currentPath`, the `visited` fill and
+    `rightIndex` are gone with the old cell model. `iUp`… and `FlipPad()` remain.
 12. **The README production link may be stale.** See the URL section above.
 
 Found in CAL-1231 by running the generator on rectangular grids (the code keeps
@@ -197,14 +204,18 @@ None was fixed.
     each move. Search, however, starts from `player.index`. On a non-square
     grid it starts from the wrong cell, or throws a `TypeError` when the index
     is past the end of the maze.
+    *Fixed in CAL-1232:* the player position is a cell ID, and moves follow the
+    topology's neighbours.
 14. **A single-row grid gets its outer top and bottom walls opened.** With
     `height` 1, the up/down neighbour indices (index ± 1) equal the left/right
     ones (index ± height). When `MakeMaze` opens a passage, it matches both, so
     the player can walk out of the maze.
+    *Fixed in CAL-1232:* a single row has no up/down neighbours in the topology.
 15. **Search on the exit cell does nothing.** `Find()` never checks whether the
     start cell is the target. It explores the whole maze, then spins to its
     10,000-iteration cap, and the previous route (if any) stays drawn. This is
     reachable with Auto-new off.
+    *Fixed in CAL-1232:* search returns the exit cell as the route.
 
 ## How this baseline was checked
 
@@ -234,8 +245,11 @@ None was fixed.
   - search from the start;
   - malformed sizes (`0`, empty, `-3`, `2.5`, `abc`).
 
-  Tests named "known defect N" pin defects 1, 2, 3, 13, 14 and 15 as they
-  behave today. A fix should update the test and this list together.
+  Tests named "known defect N" pin defects 1 and 2 as they behave today. A fix
+  should update the test and this list together. Tests named "fixed defect N"
+  cover 3, 13, 14 and 15, which CAL-1232 fixed.
+- `test/model.test.js` (CAL-1232) tests the maze model on square, hexagonal,
+  triangular and polar topologies (see `docs/model.md`).
 - The geometry helpers in `test/harness.js` (`assertPerfectMaze`, `neighbours`,
   `shortestRoute`) take the number of columns and rows, so they can be reused
   for non-square mazes.

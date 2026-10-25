@@ -13,3 +13,4 @@ npm run dev     # serve locally
 
 CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/baseline.md` records the current behaviour and the known defects.
+`docs/model.md` describes the topology-independent maze model in `src/javascripts/maze/`.
