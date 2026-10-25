@@ -124,12 +124,18 @@ export class DirectionPad
 
   // Shows `directions`, a list of { label, angle, open } (see directionsAt).
   // The buttons are rebuilt only when the labels or their angles change, so a
-  // focused button keeps focus while the player moves on a square grid.
+  // focused button keeps focus while the player moves on a square grid. When
+  // they are rebuilt with focus on the pad (triangles and circles), focus goes
+  // to the new button of the same direction if it is open, or else to the
+  // first open one, so keyboard play on the pad can go on.
   update(directions)
   {
     const layout = directions.map((d) => `${d.label}@${d.angle.toFixed(6)}`).join(' ');
+    let focused = null;
     if(layout !== this.#layout)
     {
+      const active = this.#svg.ownerDocument.activeElement?.closest?.('[data-label]');
+      if(active && this.#svg.contains(active)) focused = active.getAttribute('data-label');
       this.#layout = layout;
       this.#build(directions);
     }
@@ -140,6 +146,9 @@ export class DirectionPad
       button.setAttribute('aria-disabled', String(!d.open));
       button.setAttribute('tabindex', d.open ? '0' : '-1');
     });
+    if(focused === null) return;
+    const open = buttons.filter((_, k) => directions[k].open);
+    (open.find((b) => b.getAttribute('data-label') === focused) ?? open[0])?.focus();
   }
 
   #build(directions)

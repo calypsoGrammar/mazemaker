@@ -96,6 +96,10 @@ inside the pad.
 - A closed direction is shown faded, with `aria-disabled="true"`, and is not in
   the tab order. Tapping it does nothing.
 - An open button moves on a tap/click, or on Enter or Space when focused.
+- When the buttons are rebuilt while one has focus (triangles and circles,
+  whose sets change as the player moves), focus moves to the new button for
+  the same direction if it is open, or else to the first open one. So
+  keyboard play on the pad never drops focus to the page (CAL-1244).
 - The pad shows the cell last reached. It is updated when the cell or the maze
   changes, not on every animation frame. When only `open` changes, the buttons
   are kept, so focus is too.
@@ -104,6 +108,7 @@ inside the pad.
 
 ## Canvas
 
-The canvas has no input handlers. Tapping, dragging or scrolling the maze never
-moves the player (`test/controller.test.js`). Canvas gestures added later,
-such as pan or zoom, will not receive pad events.
+The canvas only pans and zooms (`docs/rendering.md`). Tapping, dragging,
+pinching or scrolling the maze never moves the player, on any shape
+(`test/controller.test.js`, `test/viewport.test.js`, `test/release.test.js`),
+and pad events never reach the canvas.

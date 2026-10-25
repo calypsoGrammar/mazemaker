@@ -111,7 +111,25 @@ On a window `resize`, on hiding or showing the pad, and when
 `devicePixelRatio` changes (a `matchMedia` resolution query, for example after
 moving to another screen), `main.js` resizes the canvas and redraws. The maze,
 the player's cell and the route are kept. The canvas is still a square with a
-side of 90% of the smaller of the window width and the game-area height.
+side of 90% of the shorter side of the maze area.
+
+`pageLayout({ width, height, padShown })` in `render/layout.js` (CAL-1244)
+says where the toolbar, the maze area and the pad go. `main.js` places them
+with inline styles and sizes the canvas from it. The regions never overlap.
+
+- Stacked (portrait and roomy screens): the toolbar is 7.5% of the height,
+  at least 44 px. The maze area is under it, 62.5% of the height, and the
+  pad fills the rest. This is the layout from before, apart from the
+  toolbar's minimum.
+- Beside (landscape and under `SIDE_LAYOUT_MAX_HEIGHT`, 540 px: a phone on
+  its side): the pad is a column on the right, as wide as the height under
+  the toolbar, and at most 40% of the width. The maze area takes the rest.
+  `body` gets the class `side-layout`. Stacked at that height, a six-way
+  pad's buttons would be under 44 px.
+- With the pad hidden, the maze area takes all the space under the toolbar.
+
+A window with no room for the maze (a size of 0, as some browsers report
+while hidden or rotating) draws nothing and throws nothing.
 
 ## Changes in the game
 

@@ -20,3 +20,4 @@ CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/triangle.md` describes triangular mazes.
 `docs/polar.md` describes circular (polar) mazes.
 `docs/interface.md` describes the toolbar, settings and colours.
+`docs/release.md` records the release review: what the tests check and the manual browser pass still to do.

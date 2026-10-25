@@ -5,7 +5,8 @@ titles, instructions or labels in play. Settings are behind one icon.
 
 ## Toolbar
 
-`#toolbar` is a `<nav>` across the top (7.5 vh). Every action is a `.tool`
+`#toolbar` is a `<nav>` across the top (7.5 vh, at least 44 px; see
+`docs/rendering.md`, Resizing). Every action is a `.tool`
 button with an inline 24 × 24 SVG line icon drawn in `currentColor`, an
 `aria-label` for screen readers and a matching `title` as a hover hint. Left to
 right, in three groups:
@@ -31,8 +32,9 @@ Focus outlines are made transparent, never removed, so forced-colours (high
 contrast) mode, which drops the ring, still draws an outline.
 
 Only colours change, over 150 ms (none with `prefers-reduced-motion`). There
-are no shadows, gradients, scaling or animations. On a short screen the buttons
-shrink with the toolbar and stay square.
+are no shadows, gradients, scaling or animations. The toolbar is never shorter
+than 44 px, so its buttons stay 40 px squares. With `prefers-reduced-motion`
+the player's moves are not animated either (`docs/model.md`).
 
 The route is hidden again by Restart and by every new maze, as before; the
 button's pressed state follows it.
