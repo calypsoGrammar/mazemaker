@@ -3,7 +3,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadGame, neighbours, shortestRoute } from './harness.js';
+import { followRoute, loadGame, neighbours, shortestRoute } from './harness.js';
 
 const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 
@@ -20,7 +20,8 @@ const shown = (g, id) => g.document.getElementById(id).style.display !== 'none';
 
 function solve(g) {
   const { size } = g.state.topology;
-  for (const d of shortestRoute(g.state.maze, g.state.height, 0, size - 1).dirs) g.key(ARROWS[d]);
+  const route = shortestRoute(g.state.maze, g.state.height, g.state.player.cell, size - 1);
+  followRoute(g, route.cells, (d) => g.key(ARROWS[d]));
 }
 
 function keydown(g, init) {
@@ -119,13 +120,18 @@ test('with Auto-new off, reaching the exit shows the completion state until rest
 
 test('the goal is only the exit cell: no other cell completes the maze', async () => {
   const g = await gameOfSize(6, { autoNew: false });
-  const { cells, dirs } = shortestRoute(g.state.maze, 6, 0, 35);
-  dirs.slice(0, -1).forEach((d, k) => {
-    g.key(ARROWS[d]);
-    assert.equal(g.state.player.cell, cells[k + 1]);
+  const { cells } = shortestRoute(g.state.maze, 6, 0, 35);
+  followRoute(g, cells, (d) => {
     assert.equal(g.state.completed, false);
+    g.press(ARROWS[d]);
+    const trail = [g.state.player.cell];
+    while (g.pendingFrames > 0) {
+      g.tick(g.state.stepMs / 2);
+      if (g.state.player.cell !== trail.at(-1)) trail.push(g.state.player.cell);
+      assert.equal(g.state.completed, g.state.player.cell === 35);
+    }
+    return trail;
   });
-  g.key(ARROWS[dirs.at(-1)]);
   assert.equal(g.state.completed, true);
 });
 
@@ -154,11 +160,9 @@ test('keys do not move the player while the settings panel is open', async () =>
   const g = await gameOfSize(6, { autoNew: false });
   const [[dir, cell]] = neighbours(g.state.maze, 6, 0);
   g.click('OptionsButton');
-  g.key(ARROWS[dir]);
-  assert.equal(g.state.player.cell, 0);
+  assert.deepEqual(g.key(ARROWS[dir]), [0]);
   g.click('OptionsButton');
-  g.key(ARROWS[dir]);
-  assert.equal(g.state.player.cell, cell);
+  assert.equal(g.key(ARROWS[dir])[1], cell);
 });
 
 test('movement keys are consumed; browser shortcuts and other keys are left alone', async () => {
@@ -167,9 +171,9 @@ test('movement keys are consumed; browser shortcuts and other keys are left alon
   for (const modifier of ['ctrlKey', 'metaKey', 'altKey']) {
     const event = keydown(g, { key: ARROWS[dir], [modifier]: true });
     assert.equal(event.defaultPrevented, false, modifier);
-    assert.equal(g.state.player.cell, 0, modifier);
+    assert.deepEqual(g.settle(), [0], modifier);
   }
   assert.equal(keydown(g, { key: 'Tab' }).defaultPrevented, false);
   assert.equal(keydown(g, { key: ARROWS[dir] }).defaultPrevented, true);
-  assert.equal(g.state.player.cell, cell);
+  assert.equal(g.settle()[1], cell);
 });

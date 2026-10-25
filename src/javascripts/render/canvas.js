@@ -3,7 +3,9 @@
 //
 // A scene is { maze, geometry, player, goal, path }: the maze to draw, the
 // geometry of its topology, the player's and the goal's cells, and an optional
-// list of cells to highlight.
+// list of cells to highlight. While the player moves, `player` can instead be
+// { from, to, progress }: the marker is drawn `progress` (0 to 1) of the way
+// from cell `from` to cell `to`.
 
 import { Viewport } from './viewport.js';
 
@@ -112,21 +114,60 @@ export class CanvasRenderer
     ctx.stroke();
 
     if(goal !== null) this.#marker(geometry, goal, this.colours.goal);
-    if(player !== null) this.#marker(geometry, player, this.colours.player);
+    if(player === null) return;
+    if(typeof player === 'object') this.#movingMarker(geometry, player, this.colours.player);
+    else this.#marker(geometry, player, this.colours.player);
   }
 
   #marker(geometry, cell, colour)
   {
-    const c = geometry.centre(cell);
+    this.#fill(markerPoints(geometry, cell), colour);
+  }
+
+  // Between two cells: when their markers have the same number of corners each
+  // corner moves in a straight line, so the shape changes smoothly between the
+  // cells' shapes; otherwise the `from` marker slides between the centres.
+  #movingMarker(geometry, { from, to, progress }, colour)
+  {
+    const t = Math.min(Math.max(progress, 0), 1);
+    const a = markerPoints(geometry, from);
+    const b = markerPoints(geometry, to);
+    let points;
+    if(a.length === b.length) points = a.map((p, k) => lerp(p, b[k], t));
+    else
+    {
+      const ca = geometry.centre(from);
+      const cb = geometry.centre(to);
+      const dx = (cb.x - ca.x) * t;
+      const dy = (cb.y - ca.y) * t;
+      points = a.map((p) => ({ x: p.x + dx, y: p.y + dy }));
+    }
+    this.#fill(points, colour);
+  }
+
+  #fill(points, colour)
+  {
     const ctx = this.#ctx;
     ctx.fillStyle = colour;
     ctx.beginPath();
-    tracePolygon(ctx, geometry.outline(cell).map((p) => ({
-      x: c.x + (p.x - c.x) * MARKER_SCALE,
-      y: c.y + (p.y - c.y) * MARKER_SCALE,
-    })));
+    tracePolygon(ctx, points);
     ctx.fill();
   }
+}
+
+// The cell's outline shrunk around its centre by MARKER_SCALE.
+function markerPoints(geometry, cell)
+{
+  const c = geometry.centre(cell);
+  return geometry.outline(cell).map((p) => ({
+    x: c.x + (p.x - c.x) * MARKER_SCALE,
+    y: c.y + (p.y - c.y) * MARKER_SCALE,
+  }));
+}
+
+function lerp(a, b, t)
+{
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
 
 function tracePolyline(ctx, points)

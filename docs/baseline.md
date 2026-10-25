@@ -98,7 +98,7 @@ Colours: walls `rgba(50,50,60)`, player green `rgba(150,250,150)`, exit red
 
 | Input | Action |
 |---|---|
-| Arrow keys or `w` `a` `s` `d` (lower case only) | Move one cell. Moves into a wall are ignored. |
+| Arrow keys or `w` `a` `s` `d` (lower case only) | Move one cell. Moves into a wall are ignored. *Since CAL-1237:* run along the corridor to the next junction, dead end or the exit (see `docs/model.md`). |
 | D-pad buttons (click or tap) | Same as the keys. |
 | Reset (undo) | New maze at the size **currently typed** in the settings field (not a reset to size 5). *Since CAL-1236:* restarts the current maze. |
 | New maze (plus icon, *added in CAL-1236*) | A new layout at the size in play. |
@@ -259,7 +259,8 @@ None was fixed.
     steps (not at its safety cap);
   - a full tour of each maze up to 400 cells by key presses: every open
     passage moves the player one cell, every wall and outer edge blocks, and
-    every cell is reachable;
+    every cell is reachable (*since CAL-1237:* every open passage starts a
+    corridor run that matches an independent calculation);
   - reaching the exit, with and without Auto-new;
   - search from the start;
   - malformed sizes (`0`, empty, `-3`, `2.5`, `abc`).

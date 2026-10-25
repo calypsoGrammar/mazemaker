@@ -253,8 +253,9 @@ test('game: resizing the window keeps the maze, player and route, and redraws th
   g.document.getElementById('autonew').checked = false;
   g.generateFromSettings(8);
   const [first] = g.state.maze.traversableLinks(0);
-  g.key({ UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' }[first.label]);
-  assert.equal(g.state.player.cell, first.cell);
+  const trail = g.key({ UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' }[first.label]);
+  assert.equal(trail[1], first.cell);
+  const cell = g.state.player.cell;
   g.click('SearchButton');
   const maze = g.state.maze;
   const passages = JSON.stringify(maze.passages());
@@ -269,7 +270,7 @@ test('game: resizing the window keeps the maze, player and route, and redraws th
     assert.equal(g.state.canvas.width, Math.floor(size * dpr), `${w}x${h}@${dpr}`);
     assert.equal(g.state.maze, maze);
     assert.equal(JSON.stringify(g.state.maze.passages()), passages);
-    assert.equal(g.state.player.cell, first.cell);
+    assert.equal(g.state.player.cell, cell);
     assert.deepEqual([...g.state.route], route);
     assert.ok(g.drawCalls.some(([n]) => n === 'stroke'), 'redrawn after resize');
   }

@@ -40,6 +40,7 @@ window.__mm = {
   get canvas() { return canvas; },
   get geometry() { return geometry; },
   get renderer() { return renderer; },
+  stepMs: STEP_MS,
   Find,
   NewMaze,
   StartMaze,
@@ -78,6 +79,18 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
   window.HTMLCanvasElement.prototype.getContext = function () {
     return this.__ctx ??= stubContext();
   };
+  // Animation frames run only when a test asks for them, on a fake clock.
+  let now = 0;
+  let nextFrame = 1;
+  const frames = new Map();
+  window.requestAnimationFrame = (callback) => { frames.set(nextFrame, callback); return nextFrame++; };
+  window.cancelAnimationFrame = (id) => { frames.delete(id); };
+  const runFrame = (ms) => {
+    now += ms;
+    const due = [...frames.values()];
+    frames.clear();
+    for (const callback of due) callback(now);
+  };
   const random = seeded(seed);
   let randomCalls = 0;
   window.Math.random = () => { randomCalls++; return random(); };
@@ -87,15 +100,53 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
   await new Promise((resolve) => window.document.addEventListener('DOMContentLoaded', resolve));
 
   const { document } = window;
+  const state = window.__mm;
   return {
     window,
     document,
-    state: window.__mm,
+    state,
+    // Presses a key and lets the move it starts finish (see settle()).
     key(key) {
+      this.press(key);
+      return this.settle();
+    },
+    // Presses a key without running any animation frames.
+    press(key) {
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true }));
     },
     click(id) {
       document.getElementById(id).click();
+    },
+    // Number of animation frames waiting to run.
+    get pendingFrames() { return frames.size; },
+    // Runs one animation frame `ms` later than the last.
+    tick(ms = 1000 / 60) {
+      runFrame(ms);
+    },
+    // Runs animation frames one step apart until none is pending, and returns
+    // the cells the player was drawn in, from the cell before the first frame.
+    // Cells of a maze made by the frames (Auto-new) are not included. Only the
+    // last frame's draw calls are kept.
+    settle() {
+      const maze = state.maze;
+      const cells = [state.player.cell];
+      const { renderer } = state;
+      const render = renderer.render;
+      renderer.render = function (scene) {
+        const cell = typeof scene.player === 'object' ? scene.player.from : scene.player;
+        if (scene.maze === maze && cell !== cells.at(-1)) cells.push(cell);
+        return render.call(this, scene);
+      };
+      try {
+        for (let k = 0; frames.size > 0; k++) {
+          if (k > 1e6) throw new Error('animation does not finish');
+          this.drawCalls.length = 0;
+          runFrame(state.stepMs);
+        }
+      } finally {
+        delete renderer.render;
+      }
+      return cells;
     },
     // Changes the window size (and optionally the pixel ratio) and fires resize.
     resize(width, height, dpr = window.devicePixelRatio) {
@@ -150,6 +201,48 @@ export function neighbours(maze, rows, i) {
     if (j !== null && maze.isLinked(i, j)) out.push([dir, j]);
   }
   return out;
+}
+
+// Where a corridor run started by moving `dir` from `i` stops, written against
+// the grid like the helpers above: it goes on while the cell reached has
+// exactly one open passage other than the one it came in by, and stops at
+// `goal`. Returns the cells after `i`, or [] when `dir` is walled.
+export function corridorRun(maze, rows, i, dir, goal) {
+  const first = neighbours(maze, rows, i).find(([d]) => d === dir);
+  if (!first) return [];
+  const cells = [first[1]];
+  let previous = i;
+  let cell = first[1];
+  while (cell !== goal && cell !== i) {
+    const onward = neighbours(maze, rows, cell).filter(([, j]) => j !== previous);
+    if (onward.length !== 1) break;
+    previous = cell;
+    cell = onward[0][1];
+    cells.push(cell);
+  }
+  return cells;
+}
+
+// Follows `cells` (a route starting at the player's cell) with corridor runs:
+// presses the direction of the next route cell, lets the run finish, and
+// checks it stopped on the route further along. `press(dir)` sends one
+// direction and returns the cells passed through, as `settle()` does. Returns
+// the number of presses.
+export function followRoute(g, cells, press) {
+  const rows = g.state.height;
+  const maze = g.state.maze;
+  let at = 0;
+  let presses = 0;
+  while (at < cells.length - 1) {
+    const [dir] = neighbours(maze, rows, cells[at]).find(([, j]) => j === cells[at + 1]);
+    const trail = press(dir);
+    presses++;
+    if (g.state.maze !== maze) return presses;
+    const reached = cells.indexOf(trail.at(-1), at + 1);
+    if (reached < 0) throw new Error(`run from ${cells[at]} going ${dir} left the route at ${trail.at(-1)}`);
+    at = reached;
+  }
+  return presses;
 }
 
 // Breadth-first shortest route, independent of the model's shortestPath().

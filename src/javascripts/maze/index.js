@@ -6,4 +6,4 @@ export { Maze } from './maze.js';
 export {
   growingTree, STRATEGIES, STRATEGY_NAMES, DEFAULT_STRATEGY, MAX_CELLS, resolveStrategy, seededRandom,
 } from './generate.js';
-export { reachable, shortestPath, isPerfect } from './navigate.js';
+export { reachable, shortestPath, isPerfect, corridor } from './navigate.js';

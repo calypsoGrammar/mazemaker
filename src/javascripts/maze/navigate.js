@@ -48,3 +48,27 @@ export function isPerfect(maze)
   const size = maze.topology.size;
   return maze.passages().length === size - 1 && reachable(maze, 0).length === size;
 }
+
+// The cells a corridor run passes through after leaving `from` for its
+// neighbour `next`, ending with the cell where it stops. The run keeps going
+// while the cell it has reached has exactly one onward passage (any passage
+// except the one it came in by), so it follows straight corridors and forced
+// turns alike. It stops at a junction (two or more onward passages), a dead
+// end, `stopAt` (the destination), or when it gets back to `from` round a loop
+// with no junctions. Throws a RangeError when no passage joins `from` and `next`.
+export function corridor(maze, from, next, { stopAt = null } = {})
+{
+  if(!maze.isLinked(from, next)) throw new RangeError(`no passage from cell ${from} to cell ${next}`);
+  const cells = [next];
+  let previous = from;
+  let cell = next;
+  while(cell !== stopAt && cell !== from)
+  {
+    const onward = maze.traversableNeighbours(cell).filter((n) => n !== previous);
+    if(onward.length !== 1) break;
+    previous = cell;
+    cell = onward[0];
+    cells.push(cell);
+  }
+  return cells;
+}

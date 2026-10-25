@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVES, assertPerfectMaze, loadGame, neighbours, shortestRoute, step } from './harness.js';
+import { MOVES, assertPerfectMaze, corridorRun, followRoute, loadGame, neighbours, shortestRoute, step } from './harness.js';
 
 const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 const OPPOSITE = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
@@ -57,26 +57,40 @@ for (const [cols, rows] of GEOMETRIES) {
     assertPerfectMaze(assert, g.state.maze, cols, rows);
   });
 
-  // Every move redraws the whole maze, so a full tour of 50x50 takes ~15 s.
-  test(`${at}: every move goes through an open passage and never leaves the grid; every cell can be reached`, {
+  // Every animation frame redraws the whole maze, so a full tour of 50x50 is slow.
+  // Changed in CAL-1237: a move runs along the corridor instead of one cell.
+  test(`${at}: every run goes through open passages and never leaves the grid; every cell can be reached`, {
     skip: cols * rows > MAX_TOUR_CELLS && 'too slow for a full tour; covered structurally above',
   }, async () => {
     const g = await gameAt(cols, rows);
     const { maze } = g.state;
-    const visited = new Set();
+    const goal = cols * rows - 1;
+    const visited = new Set([0]);
+    const explored = new Set();
+    // Tries every direction from `cell`, where a run stops (or the start), and
+    // comes back to it after each run.
     const visit = (cell) => {
-      visited.add(cell);
+      explored.add(cell);
       for (const dir of Object.keys(MOVES)) {
-        g.key(ARROWS[dir]);
-        const now = playerCell(g);
-        const target = step(cols, rows, cell, dir);
-        if (target === null || !maze.isLinked(cell, target)) {
-          assert.equal(now, cell, `${at} ${dir} from ${cell} should be blocked`);
+        const trail = g.key(ARROWS[dir]);
+        const expected = corridorRun(maze, rows, cell, dir, goal);
+        if (expected.length === 0) {
+          assert.deepEqual(trail, [cell], `${at} ${dir} from ${cell} should be blocked`);
           continue;
         }
-        assert.equal(now, target, `${at} ${dir} from ${cell}`);
-        if (!visited.has(now)) visit(now);
-        g.key(ARROWS[OPPOSITE[dir]]);
+        assert.deepEqual(trail, [cell, ...expected], `${at} ${dir} from ${cell}`);
+        for (let k = 1; k < trail.length; k++) {
+          const adjacent = Object.keys(MOVES).some((d) => step(cols, rows, trail[k - 1], d) === trail[k]);
+          assert.ok(adjacent && maze.isLinked(trail[k - 1], trail[k]), `${at} step ${trail[k - 1]}-${trail[k]}`);
+          visited.add(trail[k]);
+        }
+        const end = trail.at(-1);
+        if (!explored.has(end)) visit(end);
+        if (cell === 0) g.click('ResetButton');
+        else {
+          const back = Object.keys(MOVES).find((d) => step(cols, rows, end, d) === trail.at(-2));
+          assert.deepEqual(g.key(ARROWS[back]), [...trail].reverse(), `${at} back from ${end}`);
+        }
         assert.equal(playerCell(g), cell);
       }
     };
@@ -84,16 +98,16 @@ for (const [cols, rows] of GEOMETRIES) {
     assert.equal(visited.size, cols * rows);
   });
 
-  test(`${at}: walking the shortest route reaches the exit, and with auto-new a fresh maze starts`, async () => {
+  test(`${at}: following the shortest route reaches the exit, and with auto-new a fresh maze starts`, async () => {
     const stay = await gameAt(cols, rows);
     const route = shortestRoute(stay.state.maze, rows, 0, cols * rows - 1);
-    for (const d of route.dirs) stay.key(ARROWS[d]);
+    followRoute(stay, route.cells, (d) => stay.key(ARROWS[d]));
     assert.equal(playerCell(stay), cols * rows - 1);
     assert.equal(stay.state.topology.size, cols * rows);
 
     const next = await gameAt(cols, rows, { autoNew: true });
     const first = next.state.maze;
-    for (const d of shortestRoute(next.state.maze, rows, 0, cols * rows - 1).dirs) next.key(ARROWS[d]);
+    followRoute(next, shortestRoute(first, rows, 0, cols * rows - 1).cells, (d) => next.key(ARROWS[d]));
     // Auto-new keeps the size in play (Auto-increment is off here).
     assert.notEqual(next.state.maze, first);
     assertPerfectMaze(assert, next.state.maze, cols, rows);
@@ -170,14 +184,17 @@ test('fixed defect 13: horizontal moves step one column on a non-square grid, an
   const cols = 7;
   const rows = 3;
   const g = await gameAt(cols, rows);
-  // Walk to the first cell with an open passage to the right, then step right.
-  const from = g.state.topology.cells().find((i) => neighbours(g.state.maze, rows, i).some(([d]) => d === 'RIGHT'));
-  for (const d of shortestRoute(g.state.maze, rows, 0, from).dirs) g.key(ARROWS[d]);
+  // Go to a cell with an open passage to the right where runs stop (one
+  // that is not in the middle of a corridor), then move right.
+  const { maze } = g.state;
+  const from = g.state.topology.cells().find((i) => neighbours(maze, rows, i).some(([d]) => d === 'RIGHT')
+    && neighbours(maze, rows, i).length !== 2);
+  followRoute(g, shortestRoute(maze, rows, 0, from).cells, (d) => g.key(ARROWS[d]));
   assert.equal(playerCell(g), from);
-  g.key(ARROWS.RIGHT);
-  assert.equal(playerCell(g), from + rows);
+  const trail = g.key(ARROWS.RIGHT);
+  assert.equal(trail[1], from + rows);
   g.click('SearchButton');
-  assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, rows, from + rows, cols * rows - 1).cells);
+  assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, rows, trail.at(-1), cols * rows - 1).cells);
 });
 
 test('fixed defect 14: with a single row, generation keeps the outer top and bottom walls closed', async () => {
@@ -190,7 +207,7 @@ test('fixed defect 14: with a single row, generation keeps the outer top and bot
 
 test('fixed defect 15: search while standing on the exit highlights just the exit cell', async () => {
   const g = await gameAt(5, 5);
-  for (const d of shortestRoute(g.state.maze, 5, 0, 24).dirs) g.key(ARROWS[d]);
+  followRoute(g, shortestRoute(g.state.maze, 5, 0, 24).cells, (d) => g.key(ARROWS[d]));
   assert.equal(playerCell(g), 24);
   g.click('SearchButton');
   assert.deepEqual([...g.state.route], [24]);
