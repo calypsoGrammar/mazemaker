@@ -7,7 +7,7 @@ tracker:
   kind: linear
   provider:
     # Linear project "Maze Maker".
-    project_id: "230cc8c1-582f-47b3-a5b9-8e9f583140b6"
+    project_id: "2a0e01db-3714-4a8b-b2ae-982598a83ffb"
 hooks:
   # Each attempt starts from a fresh checkout; install dependencies so the
   # agent can build and check its work.
@@ -17,6 +17,7 @@ hooks:
 agent:
   max_concurrent_agents: 1
 archon:
+  requires: [node26]
   verify:
     setup:
       - npm ci --no-audit --no-fund
