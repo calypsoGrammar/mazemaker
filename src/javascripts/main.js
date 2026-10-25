@@ -1,6 +1,6 @@
 "use strict";
 
-import { squareTopology, growingTree, shortestPath } from './maze/index.js';
+import { squareTopology, growingTree, shortestPath, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer } from './render/index.js';
 
 function CalculateVh()
@@ -29,6 +29,7 @@ class Player
     const next = maze.move(this.cell, DIRECTION);
     if(next === null) return;
     this.cell = next;
+    UpdateRoute();
     Draw();
     this.CheckWin();
   }
@@ -120,7 +121,10 @@ let maze = null;
 let geometry = null;
 let exitCell = 0;
 // Cells of the route shown by Search, from the player's cell to the exit.
+// Once Search is pressed the route is recomputed after every move, until the
+// next maze.
 let route = [];
+let showRoute = false;
 let player = new Player();
 
 function ToggleSettings()
@@ -177,15 +181,20 @@ function NewMaze()
 	autoNew = aNew.checked;
 	increment = aIncrement.checked;
 
-  // Throws a RangeError for a size that is not a positive whole number, before
-  // any state changes, so the previous maze stays in play.
-  topology = squareTopology(cols, rows);
+  // Throws a RangeError for a size that is not a positive whole number or has
+  // more than MAX_CELLS cells, before any state changes, so the previous maze
+  // stays in play.
+  if(cols * rows > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
+  const nextTopology = squareTopology(cols, rows);
+  const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
+  topology = nextTopology;
   width = cols;
   height = rows;
-  maze = growingTree(topology, { random: () => Math.random() }).maze;
+  maze = nextMaze;
   geometry = geometryFor(topology);
   exitCell = topology.size - 1;
   route = [];
+  showRoute = false;
   player.cell = 0;
 
   Draw();
@@ -302,8 +311,17 @@ function FlipPad()
 
 function Find()
 {
-  route = shortestPath(maze, player.cell, exitCell) ?? [];
+  showRoute = true;
+  UpdateRoute();
   Draw();
+}
+
+// Recomputes the shown route from the player's current cell. An unreachable
+// exit gives an empty route.
+function UpdateRoute()
+{
+  if(!showRoute) return;
+  route = shortestPath(maze, player.cell, exitCell) ?? [];
 }
 
 window.addEventListener('resize', ReSizeMaze);

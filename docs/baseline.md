@@ -146,7 +146,8 @@ reaches the exit. In a perfect maze, the route it returns is the shortest
 (verified against an independent breadth-first search in the tests). The route:
 
 - is drawn as translucent squares, including the player's cell;
-- is **not** updated as the player moves, and stays until the next maze;
+- is **not** updated as the player moves, and stays until the next maze
+  (*since CAL-1234:* it is recomputed from the player's cell after every move);
 - has a hard cap of 10,000 iterations.
 
 ## Existing defects
