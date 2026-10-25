@@ -42,8 +42,9 @@ the same build as `main`.
   pins Vite 4.1.4 and Tailwind 3.2.7 through `package-lock.json`. The build is
   reproducible: the hashes above match a build made in 2023. Tested on Node 26
   locally; CI uses Node 22.
-- **CI:** `.github/workflows/ci.yml` runs `npm ci` and `npm run build` on pull
-  requests and pushes to `main`. It does **not** deploy.
+- **CI:** `.github/workflows/ci.yml` runs `npm ci`, `npm test` and `npm run build`
+  on pull requests and pushes to `main` (tests added in CAL-1231). It does **not**
+  deploy.
 - **Deploy mechanism: not in the repository.** No workflow publishes to Pages,
   and `dist/` is not on `main` (it was committed by hand on 2023-02-26 and
   removed on 2023-03-04). The site is therefore published one of these ways:
@@ -184,6 +185,27 @@ Found by reading the code and running it in jsdom. None was fixed in this ticket
     None of this affects gameplay today.
 12. **The README production link may be stale.** See the URL section above.
 
+Found in CAL-1231 by running the generator on rectangular grids (the code keeps
+separate `width` and `height`, but the UI only makes squares). None of these can
+be reached from the UI today. They matter once non-square mazes are supported.
+None was fixed.
+
+13. **Horizontal moves update `player.index` by the width, not the height.**
+    `Player.Move` adds or subtracts `width` for LEFT/RIGHT, but cells are stored
+    column by column, so a column step is `height`. Wall checks are unaffected,
+    because `CheckValidPos` recomputes the index from the drawn position before
+    each move. Search, however, starts from `player.index`. On a non-square
+    grid it starts from the wrong cell, or throws a `TypeError` when the index
+    is past the end of the maze.
+14. **A single-row grid gets its outer top and bottom walls opened.** With
+    `height` 1, the up/down neighbour indices (index ± 1) equal the left/right
+    ones (index ± height). When `MakeMaze` opens a passage, it matches both, so
+    the player can walk out of the maze.
+15. **Search on the exit cell does nothing.** `Find()` never checks whether the
+    start cell is the target. It explores the whole maze, then spins to its
+    10,000-iteration cap, and the previous route (if any) stays drawn. This is
+    reachable with Auto-new off.
+
 ## How this baseline was checked
 
 - `npm ci && npm run build`: succeeds. The output was compared byte for byte with
@@ -199,6 +221,24 @@ Found by reading the code and running it in jsdom. None was fixed in this ticket
   - the settings panel, Reset and hiding the D-pad.
 
   The tests check state rather than pixels.
+- `test/validation.test.js` (CAL-1231) checks the core rules. It runs on squares
+  and on rectangles, through the harness's `generate(cols, rows)`, which runs
+  the unmodified `NewMaze()` at a size the UI cannot express. It checks:
+  - a perfect maze with the start and exit in the right corners;
+  - generation ending by exhausting its work list, within a bounded number of
+    steps (not at its safety cap);
+  - a full tour of each maze up to 400 cells by key presses: every open
+    passage moves the player one cell, every wall and outer edge blocks, and
+    every cell is reachable;
+  - reaching the exit, with and without Auto-new;
+  - search from the start;
+  - malformed sizes (`0`, empty, `-3`, `2.5`, `abc`).
+
+  Tests named "known defect N" pin defects 1, 2, 3, 13, 14 and 15 as they
+  behave today. A fix should update the test and this list together.
+- The geometry helpers in `test/harness.js` (`assertPerfectMaze`, `neighbours`,
+  `shortestRoute`) take the number of columns and rows, so they can be reused
+  for non-square mazes.
 - No real browser or device was available. Layout and touch behaviour above come
   from the code, not from screenshots.
 

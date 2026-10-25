@@ -23,7 +23,10 @@ window.__mm = {
   get increment() { return increment; },
   get hideT() { return hideT; },
   get canvas() { return canvas; },
+  get running() { return running; },
+  get history() { return history1; },
   Find,
+  NewMaze,
 };`;
 
 function stubContext() {
@@ -54,7 +57,9 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768 
   window.HTMLCanvasElement.prototype.getContext = function () {
     return this.__ctx ??= stubContext();
   };
-  window.Math.random = seeded(seed);
+  const random = seeded(seed);
+  let randomCalls = 0;
+  window.Math.random = () => { randomCalls++; return random(); };
   window.eval(source + expose);
   // main.js generates the first maze on DOMContentLoaded, as in a browser.
   await new Promise((resolve) => window.document.addEventListener('DOMContentLoaded', resolve));
@@ -70,10 +75,28 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768 
     click(id) {
       document.getElementById(id).click();
     },
+    get randomCalls() { return randomCalls; },
+    // Runs main.js's NewMaze() at a size the UI cannot express. NewMaze reads
+    // the size field twice, first for the width (columns) and then for the
+    // height (rows); this answers those reads with `cols` and `rows`.
+    generate(cols, rows = cols) {
+      const field = Object.getOwnPropertyDescriptor(window, 'display001');
+      const reads = [cols, rows];
+      Object.defineProperty(window, 'display001', {
+        configurable: true,
+        value: { get value() { return reads.shift(); }, set value(v) {} },
+      });
+      try {
+        window.__mm.NewMaze();
+      } finally {
+        Object.defineProperty(window, 'display001', field);
+      }
+    },
   };
 }
 
-// Index helpers. main.js stores cells column by column: index = x * height + y,
+// Index helpers. They take the number of rows, so they work for any rectangle.
+// main.js stores cells column by column: index = x * height + y,
 // so UP/DOWN are -1/+1 and LEFT/RIGHT are -height/+height.
 export const MOVES = {
   UP: { wall: 'up', delta: (h) => -1 },
@@ -109,4 +132,34 @@ export function shortestRoute(maze, height, from, to) {
     dirs.unshift(prev.get(i)[1]);
   }
   return { cells, dirs };
+}
+
+// Checks that `maze` is a perfect maze on a cols x rows grid: outer walls
+// closed, each wall agrees on both sides, and the passages form a spanning
+// tree (every cell reachable, exactly one route between any two cells).
+export function assertPerfectMaze(assert, maze, cols, rows) {
+  const at = `${cols}x${rows}`;
+  assert.equal(maze.length, cols * rows, `${at} cell count`);
+  let passages = 0;
+  for (let i = 0; i < maze.length; i++) {
+    const cell = maze[i];
+    const x = Math.floor(i / rows);
+    const y = i % rows;
+    if (y === 0) assert.equal(cell.up, true, `${at} cell ${i} top`);
+    if (y === rows - 1) assert.equal(cell.down, true, `${at} cell ${i} bottom`);
+    if (x === 0) assert.equal(cell.left, true, `${at} cell ${i} left`);
+    if (x === cols - 1) assert.equal(cell.right, true, `${at} cell ${i} right`);
+    if (!cell.down) { assert.equal(maze[i + 1].up, false, `${at} cell ${i} down`); passages++; }
+    if (!cell.right) { assert.equal(maze[i + rows].left, false, `${at} cell ${i} right`); passages++; }
+  }
+  // A connected graph with cols*rows - 1 edges is a tree.
+  assert.equal(passages, cols * rows - 1, `${at} passages`);
+  const seen = new Set([0]);
+  const queue = [0];
+  while (queue.length) {
+    for (const [, j] of neighbours(maze, rows, queue.shift())) {
+      if (!seen.has(j)) { seen.add(j); queue.push(j); }
+    }
+  }
+  assert.equal(seen.size, cols * rows, `${at} reachable`);
 }
