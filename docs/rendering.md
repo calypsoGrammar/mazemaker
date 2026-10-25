@@ -116,4 +116,5 @@ The square game looks as before, with two exceptions. Walls are now sharp on
 high-DPI screens (baseline defect 8). The outer border is drawn inside a
 one-pixel margin, where before it was drawn twice along the canvas edge to
 make it the same width as the other walls. Since CAL-1240 the UI also makes
-hexagonal mazes (`docs/hex.md`).
+hexagonal mazes (`docs/hex.md`), and since CAL-1241 triangular mazes
+(`docs/triangle.md`).

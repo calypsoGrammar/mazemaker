@@ -51,10 +51,10 @@ function pressFrom(g, cell, key) {
 
 // Generation
 
-test('settings: the shape list offers Square and Hexagon, and starts on Square', async () => {
+test('settings: the shape list offers Square, Hexagon and Triangle, and starts on Square', async () => {
   const g = await loadGame();
   const select = g.document.getElementById('mazeShape');
-  assert.deepEqual([...select.options].map((o) => [o.value, o.textContent]), [['square', 'Square'], ['hex', 'Hexagon']]);
+  assert.deepEqual([...select.options].map((o) => [o.value, o.textContent]), [['square', 'Square'], ['hex', 'Hexagon'], ['triangle', 'Triangle']]);
   assert.equal(g.document.querySelector('label[for="mazeShape"]').textContent, 'Shape:');
   assert.equal(g.state.shape, 'square');
   assert.equal(g.state.topology.kind, 'square');

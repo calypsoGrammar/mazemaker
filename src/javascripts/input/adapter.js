@@ -27,8 +27,9 @@ function midpoint(points)
 
 // Tilings where every cell has the same directions. Their controls always
 // show the whole set, in this order, so buttons stay put as the player moves;
-// a direction off the edge of the maze is shown closed. Other tilings
-// (triangles, polar rings) show only the directions of the cell itself.
+// a direction off the edge of the maze is shown closed. Triangles have one
+// set for each orientation (TRIANGLE_FRAMES). Polar cells show only the
+// directions of the cell itself.
 export const DIRECTION_FRAMES = Object.freeze({
   square: Object.freeze([['UP', -Math.PI / 2], ['RIGHT', 0], ['DOWN', Math.PI / 2], ['LEFT', Math.PI]]),
   hex: Object.freeze([
@@ -36,6 +37,22 @@ export const DIRECTION_FRAMES = Object.freeze({
     ['S', Math.PI / 2], ['SW', (5 * Math.PI) / 6], ['NW', (-5 * Math.PI) / 6],
   ]),
 });
+
+// A triangle's three sides: two slanted sides and a level one, below a cell
+// pointing up and above a cell pointing down. Every cell shows all three, so
+// the controls change only when the player crosses onto the other
+// orientation.
+export const TRIANGLE_FRAMES = Object.freeze({
+  up: Object.freeze([['LEFT', (-5 * Math.PI) / 6], ['RIGHT', -Math.PI / 6], ['DOWN', Math.PI / 2]]),
+  down: Object.freeze([['LEFT', (5 * Math.PI) / 6], ['RIGHT', Math.PI / 6], ['UP', -Math.PI / 2]]),
+});
+
+// The frame of directions `cell` always shows, or null to show only its own.
+function frameOf(topology, cell)
+{
+  if(topology.kind === 'triangle') return TRIANGLE_FRAMES[topology.pointsUp(cell) ? 'up' : 'down'];
+  return Object.hasOwn(DIRECTION_FRAMES, topology.kind) ? DIRECTION_FRAMES[topology.kind] : null;
+}
 
 // Every direction out of `cell` as { label, cell, angle, open }: the
 // neighbour's label and ID (null off the edge), the way its side faces from
@@ -57,7 +74,7 @@ export function directionsAt(maze, geometry, cell)
       open: maze.isLinked(cell, neighbour),
     });
   });
-  const frame = Object.hasOwn(DIRECTION_FRAMES, topology.kind) ? DIRECTION_FRAMES[topology.kind] : null;
+  const frame = frameOf(topology, cell);
   if(frame === null) return directions;
   return frame.map(([label, angle]) =>
     directions.find((d) => d.label === label) ?? Object.freeze({ label, cell: null, angle, open: false }));
@@ -133,10 +150,17 @@ export const HEX_KEYS = Object.freeze({
 // The command a key gives on a grid of `kind`, as { angle, tolerance } for
 // pickDirection, or undefined for a key that is not a direction there. Hex
 // grids use HEX_KEYS; every other grid uses KEY_ANGLES.
+//
+// On triangle grids the arrow keys and WASD take EXACT_TOLERANCE. Every
+// triangle has a left and a right side, facing 30° above or below level, and
+// one level side, facing straight up or down. Left and Right take the slanted
+// side on their own side; Up and Down take only a level side, so on a cell
+// pointing up, Up does nothing rather than slip onto a slanted side.
 export function keyCommand(key, kind)
 {
   const name = String(key).toLowerCase();
   if(kind === 'hex') return Object.hasOwn(HEX_KEYS, name) ? HEX_KEYS[name] : undefined;
   const angle = keyAngle(name);
-  return angle === undefined ? undefined : near(angle);
+  if(angle === undefined) return undefined;
+  return kind === 'triangle' ? exact(angle) : near(angle);
 }

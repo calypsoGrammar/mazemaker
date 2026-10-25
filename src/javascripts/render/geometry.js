@@ -90,7 +90,9 @@ export function hexGeometry(topology)
 }
 
 // Equilateral triangles with unit sides, each half a side to the right of the
-// one before. A cell points up when column + row is even.
+// one before. A cell points up when column + row is even. A row's bottom is
+// computed the same way as the next row's top, so cells on either side of a
+// horizontal side give exactly the same corners and walls meet without gaps.
 export function triangleGeometry(topology)
 {
   const height = SQRT3 / 2;
@@ -100,7 +102,7 @@ export function triangleGeometry(topology)
     const { column: c, row: r } = topology.coordsOf(cell);
     const left = c / 2;
     const top = r * height;
-    const bottom = top + height;
+    const bottom = (r + 1) * height;
     return topology.pointsUp(cell)
       ? [point(left + 0.5, top), point(left + 1, bottom), point(left, bottom)]
       : [point(left, top), point(left + 1, top), point(left + 0.5, bottom)];

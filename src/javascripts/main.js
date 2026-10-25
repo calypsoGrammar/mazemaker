@@ -1,6 +1,6 @@
 "use strict";
 
-import { squareTopology, hexTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
+import { squareTopology, hexTopology, triangleTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer, attachViewGestures } from './render/index.js';
 import { directionsAt, pickDirection, keyCommand, DirectionPad } from './input/index.js';
 
@@ -209,9 +209,16 @@ attachViewGestures(canvas, {
 const MIN_SIZE = 2;
 const MAX_SIZE = 50;
 
-// Shapes the settings offer: the topology for each. A size n maze has n
-// columns and n rows of cells in either shape.
-const SHAPES = Object.freeze({ square: squareTopology, hex: hexTopology });
+// Shapes the settings offer. `topology(cols, rows)` builds the grid for a
+// maze `cols` units wide and `rows` high; `cells` is the number of cells in
+// one unit. A size n square or hex maze has n columns and n rows of cells. A
+// triangle maze has two triangles (one up, one down) per unit, so a size n
+// maze is n rows of 2n triangles and about as wide as it is tall.
+const SHAPES = Object.freeze({
+  square: Object.freeze({ cells: 1, topology: squareTopology }),
+  hex: Object.freeze({ cells: 1, topology: hexTopology }),
+  triangle: Object.freeze({ cells: 2, topology: (cols, rows) => triangleTopology(2 * cols, rows) }),
+});
 
 let width, height, autoNew, increment, factor;
 // The shape in play, a key of SHAPES. New maze and Auto-increment keep it.
@@ -334,7 +341,7 @@ function ClearCompletion()
   completeBanner.style.display = 'none';
 }
 
-// Makes a new cols x rows maze of `nextShape` (square or hex). The UI only
+// Makes a new cols x rows maze of `nextShape` (a key of SHAPES). The UI only
 // asks for MIN_SIZE to MAX_SIZE on a side; any other positive size works too.
 function StartMaze(cols, rows, nextShape = shape)
 {
@@ -342,8 +349,13 @@ function StartMaze(cols, rows, nextShape = shape)
   // Throws a RangeError for a size that is not a positive whole number or has
   // more than MAX_CELLS cells, before any state changes, so the previous maze
   // stays in play.
-  if(cols * rows > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
-  const nextTopology = SHAPES[nextShape](cols, rows);
+  for(const side of [cols, rows])
+  {
+    if(!Number.isInteger(side) || side < 1) throw new RangeError(`maze size ${cols}x${rows} is not positive whole numbers`);
+  }
+  const { cells, topology: build } = SHAPES[nextShape];
+  if(cols * rows * cells > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
+  const nextTopology = build(cols, rows);
   const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
   topology = nextTopology;
   shape = nextShape;
@@ -415,7 +427,8 @@ function FitCanvas()
 // Arrow keys and WASD in either case (Shift or Caps Lock) name a visual
 // direction; the adapter turns it into the open passage that way, if any. On a
 // square grid each key takes exactly its own direction. Hex grids add Q and E
-// and the numeric keypad for their six sides (see HEX_KEYS).
+// and the numeric keypad for their six sides (see HEX_KEYS). On triangle grids
+// each key takes only the side it names (see keyCommand).
 
 document.onkeydown = function(event)
 {
