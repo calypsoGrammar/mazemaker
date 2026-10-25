@@ -1,22 +1,27 @@
 // Loads index.html and src/javascripts/main.js into jsdom so the baseline tests
 // can drive the game the way a browser would. Only main.js's import line is
 // rewritten (see below). Canvas drawing is
-// stubbed out: the tests check game state, not pixels.
+// recorded but not rasterised: the tests check game state and draw calls, not pixels.
 
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import * as model from '../src/javascripts/maze/index.js';
+import * as render from '../src/javascripts/render/index.js';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('index.html', root), 'utf8')
   // jsdom must not try to load the module itself; the harness evaluates it.
   .replace(/<script[^>]*main\.js[^>]*><\/script>/, '');
-// jsdom cannot load ES modules, so main.js's import of the maze model is
-// replaced by the same module loaded here.
-const importPattern = /^import \{([^}]*)\} from '\.\/maze\/index\.js';$/m;
+// jsdom cannot load ES modules, so main.js's imports of the maze model and the
+// renderer are replaced by the same modules loaded here.
+const modules = { maze: model, render };
+const importPattern = /^import \{([^}]*)\} from '\.\/(maze|render)\/index\.js';$/gm;
 const source = readFileSync(new URL('src/javascripts/main.js', root), 'utf8')
-  .replace(importPattern, 'const {$1} = window.__model;');
-if (!source.includes('window.__model')) throw new Error('main.js no longer imports ./maze/index.js as expected');
+  .replace(importPattern, 'const {$1} = window.__modules.$2;');
+for (const name of Object.keys(modules)) {
+  if (!source.includes(`window.__modules.${name}`)) throw new Error(`main.js no longer imports ./${name}/index.js as expected`);
+}
+if (/^import /m.test(source)) throw new Error('main.js has an import the harness cannot load');
 
 // main.js keeps its state in top-level bindings; expose read access for tests.
 const expose = `
@@ -32,14 +37,19 @@ window.__mm = {
   get increment() { return increment; },
   get hideT() { return hideT; },
   get canvas() { return canvas; },
+  get geometry() { return geometry; },
+  get renderer() { return renderer; },
   Find,
   NewMaze,
 };`;
 
+// A 2D context that records every method call as [name, ...args] in `calls`.
 function stubContext() {
-  const noop = () => {};
-  return new Proxy({ lineWidth: 1 }, {
-    get(target, key) { return key in target ? target[key] : noop; },
+  const calls = [];
+  return new Proxy({ lineWidth: 1, calls }, {
+    get(target, key) {
+      return key in target ? target[key] : (...args) => { calls.push([key, ...args]); };
+    },
     set(target, key, value) { target[key] = value; return true; },
   });
 }
@@ -56,18 +66,19 @@ function seeded(seed) {
   };
 }
 
-export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768 } = {}) {
+export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768, devicePixelRatio = 1 } = {}) {
   const dom = new JSDOM(html, { runScripts: 'outside-only', pretendToBeVisual: true });
   const { window } = dom;
   Object.defineProperty(window, 'innerWidth', { value: innerWidth, configurable: true });
   Object.defineProperty(window, 'innerHeight', { value: innerHeight, configurable: true });
+  Object.defineProperty(window, 'devicePixelRatio', { value: devicePixelRatio, configurable: true, writable: true });
   window.HTMLCanvasElement.prototype.getContext = function () {
     return this.__ctx ??= stubContext();
   };
   const random = seeded(seed);
   let randomCalls = 0;
   window.Math.random = () => { randomCalls++; return random(); };
-  window.__model = model;
+  window.__modules = modules;
   window.eval(source + expose);
   // main.js generates the first maze on DOMContentLoaded, as in a browser.
   await new Promise((resolve) => window.document.addEventListener('DOMContentLoaded', resolve));
@@ -83,6 +94,15 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768 
     click(id) {
       document.getElementById(id).click();
     },
+    // Changes the window size (and optionally the pixel ratio) and fires resize.
+    resize(width, height, dpr = window.devicePixelRatio) {
+      Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+      Object.defineProperty(window, 'innerHeight', { value: height, configurable: true });
+      window.devicePixelRatio = dpr;
+      window.dispatchEvent(new window.Event('resize'));
+    },
+    // The 2D context's recorded calls.
+    get drawCalls() { return document.getElementById('ctx').getContext('2d').calls; },
     get randomCalls() { return randomCalls; },
     // Runs main.js's NewMaze() at a size the UI cannot express. NewMaze reads
     // the size field twice, first for the width (columns) and then for the

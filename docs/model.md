@@ -2,7 +2,8 @@
 
 The maze code in `src/javascripts/maze/` does not depend on the grid shape. It
 has no screen coordinates and no fixed set of directions. `main.js` uses it for
-the square game, and keeps everything to do with pixels, input and the player.
+the square game, and keeps input and the player. Drawing is in
+`src/javascripts/render/` (CAL-1235, `docs/rendering.md`).
 
 | Layer | Where | Knows about |
 |---|---|---|
@@ -10,7 +11,8 @@ the square game, and keeps everything to do with pixels, input and the player.
 | Passages | `maze/maze.js` (`Maze`) | Which neighbouring cells are joined. Any other pair is walled. |
 | Generation | `maze/generate.js` (`growingTree`, strategies) | Cell IDs and neighbour lists only. |
 | Navigation | `maze/navigate.js` (`shortestPath`, `reachable`, `isPerfect`) | Traversable neighbours only. |
-| Rendering, input | `main.js` | The square layout (cell → pixels) and the key → direction mapping. |
+| Rendering | `render/` (see `docs/rendering.md`) | Cell shapes for each topology, the viewport and the Canvas 2D renderer. |
+| Input | `main.js` | The key → direction mapping. |
 | Player | `main.js` (`Player.cell`) | A cell ID. |
 
 ## Topology

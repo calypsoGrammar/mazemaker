@@ -152,8 +152,8 @@ reaches the exit. In a perfect maze, the route it returns is the shortest
 ## Existing defects
 
 Found by reading the code and running it in jsdom. None was fixed in this ticket.
-CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. Each of
-those entries notes the change.
+CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
+(`docs/rendering.md`) fixed 8. Each of those entries notes the change.
 
 1. **Invalid sizes crash generation.** A size of 0, an empty field, a negative
    number or a decimal (for example 2.5) throws an uncaught `TypeError` in
@@ -177,6 +177,8 @@ those entries notes the change.
 7. **Keyboard moves the player while the settings panel covers the maze.**
 8. **Canvas ignores `devicePixelRatio`.** Walls render blurry on high-DPI phones
    and laptops. This was inferred from the code and needs checking on a device.
+   *Fixed in CAL-1235:* the backing store is scaled by `devicePixelRatio`
+   (`docs/rendering.md`). Still to be checked on a device.
 9. **Touch is untuned.** The D-pad uses `click` with no `touch-action`, so rapid
    taps may trigger double-tap zoom or delay on mobile browsers. Holding a pad
    button does not repeat, whereas holding a key does. This was inferred from the

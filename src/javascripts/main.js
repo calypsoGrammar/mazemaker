@@ -1,6 +1,7 @@
 "use strict";
 
 import { squareTopology, growingTree, shortestPath, MAX_CELLS } from './maze/index.js';
+import { geometryFor, CanvasRenderer } from './render/index.js';
 
 function CalculateVh()
 {
@@ -28,10 +29,7 @@ class Player
     const next = maze.move(this.cell, DIRECTION);
     if(next === null) return;
     this.cell = next;
-    ClearMaze();
-    DrawMaze();
-    DrawRoute();
-    DrawPlayer();
+    Draw();
     this.CheckWin();
   }
 
@@ -77,11 +75,6 @@ const iLeft = document.getElementById("iLeft");
 const iRight = document.getElementById("iRight");
 const iDown = document.getElementById("iDown");
 
-let mazeColour = "rgba(50, 50, 60, 1)";
-let playerColour = "rgba(150, 250, 150, 1)";
-let exitColour = "rgba(250, 150, 150, 1)";
-let routeColour = "rgba(46, 97, 113, 0.35)";
-
 // TOGGLE CUSTOM MAZE MENU
 
 let toggleS = false;
@@ -115,14 +108,16 @@ rightButton.onclick = function () { TouchPad('RIGHT'); };
 
 const gameDiv = document.getElementById("gameDiv");
 const canvas = document.getElementById("ctx");
-const ctx = document.getElementById("ctx").getContext("2d");
+const renderer = new CanvasRenderer(canvas);
 
 // GAME VARIABLES
 
-let width, height, w, h, autoNew, increment, cWidth, cHeight, factor;
+let width, height, autoNew, increment, factor;
 // topology: the cells and their neighbours. maze: the passages carved through it.
+// geometry: where the topology's cells are drawn.
 let topology = null;
 let maze = null;
+let geometry = null;
 let exitCell = 0;
 // Cells of the route shown by Search, from the player's cell to the exit.
 let route = [];
@@ -144,21 +139,7 @@ function DefaultSettings()
   width = 5;
   height = 5;
 
-  if(hideT) factor = 0.925;
-  else factor = 0.625;
-  
-  let screenWidth = window.innerWidth;
-  let screenHeight = window.innerHeight * factor;
-
-  let squareSize;
-  
-  if(screenWidth >= screenHeight) squareSize = screenHeight;
-  else squareSize = screenWidth;
-  
-  squareSize = squareSize * 0.9;
-
-  cWidth = squareSize;
-  cHeight = squareSize;
+  FitCanvas();
   
   autoNew = true;
   increment = true;
@@ -206,130 +187,40 @@ function NewMaze()
   width = cols;
   height = rows;
   maze = nextMaze;
+  geometry = geometryFor(topology);
   exitCell = topology.size - 1;
   route = [];
   player.cell = 0;
 
-  canvas.width = cWidth;
-  canvas.height = cHeight;
-
-  w = canvas.width / width;
-  h = canvas.height / height;
-
-  ClearMaze();
-  DrawMaze();
-  DrawRoute();
-  DrawPlayer();
+  Draw();
 }
 
-// DRAW FUNCTIONS
-// Square layout: the only place cells get screen coordinates.
+// DRAW
+// The renderer only reads the game state; every change of state redraws.
 
-function CellLeft(cell)
+function Draw()
 {
-  return topology.coordsOf(cell).column * w;
+  if(maze === null) return;
+  renderer.render({ maze, geometry, player: player.cell, goal: exitCell, path: route });
 }
 
-function CellTop(cell)
+// Sizes the canvas to 90% of the smaller of the window width and the game area
+// height, at the screen's pixel density.
+function FitCanvas()
 {
-  return topology.coordsOf(cell).row * h;
-}
+  if(hideT) factor = 0.925;
+  else factor = 0.625;
 
-// True when there is no passage from `cell` in direction `label`, including
-// the outer edge of the maze.
-function IsWall(cell, label)
-{
-  return maze.move(cell, label) === null;
-}
+  let screenWidth = window.innerWidth;
+  let screenHeight = window.innerHeight * factor;
+  let squareSize;
 
-function ClearMaze()
-{
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
+  if(screenWidth >= screenHeight) squareSize = screenHeight;
+  else squareSize = screenWidth;
 
-function DrawMaze()
-{
-  ctx.strokeStyle = mazeColour;
-  ctx.lineWidth = 1;
-  const half = ctx.lineWidth / 2;
-  const extra = ctx.lineWidth;
-  ctx.beginPath();
-  ctx.rect(0, 0, canvas.width, canvas.height);
-  ctx.stroke();
-  
-  for(const cell of topology.cells())
-  {
-    const left = CellLeft(cell);
-    const bottom = CellTop(cell) + h;
-    if(IsWall(cell, "UP"))
-	  {
-      ctx.beginPath();
-      ctx.moveTo(left + half, bottom - h + half);
-      ctx.lineTo(left + w + half, bottom - h + half);
-      ctx.stroke();
-    }
-    if(IsWall(cell, "DOWN"))
-	  {
-      ctx.beginPath();
-      ctx.moveTo(left + half, bottom + half);
-      ctx.lineTo(left + w + half, bottom + half);
-      ctx.stroke();
-    }
-    if(IsWall(cell, "LEFT"))
-	  {
-      ctx.beginPath();
-      ctx.moveTo(left, bottom - extra);
-      ctx.lineTo(left, bottom - h);
-      ctx.stroke();
-    }
-    if(IsWall(cell, "RIGHT"))
-	  {
-      ctx.beginPath();
-      ctx.moveTo(left + w, bottom + extra);
-      ctx.lineTo(left + w, bottom - h);
-      ctx.stroke();
-    }
-  }
-  // fix borders so same width all around
-  // left border
-  ctx.beginPath();
-  ctx.moveTo(0 + half, 0 + half);
-  ctx.lineTo(0 + half, canvas.height + half);
-  ctx.stroke();
-  // bottom border
-  ctx.beginPath();
-  ctx.moveTo(0 - half, canvas.width - half);
-  ctx.lineTo(canvas.height - half, canvas.width - half);
-  ctx.stroke();
-  // right border
-  ctx.beginPath();
-  ctx.moveTo(canvas.height - half, canvas.width - half);
-  ctx.lineTo(canvas.height - half, 0 - half);
-  ctx.stroke();
-  // top border
-  ctx.beginPath();
-  ctx.moveTo(0 + half, 0 + half);
-  ctx.lineTo(canvas.height + half, 0 + half);
-  ctx.stroke();
-}
+  squareSize = squareSize * 0.9;
 
-function DrawRoute()
-{
-  if(route.length === 0) return;
-  ctx.fillStyle = routeColour;
-  for(const cell of route)
-  {
-    ctx.fillRect(CellLeft(cell), CellTop(cell), w + ctx.lineWidth / 16, h + ctx.lineWidth / 16);
-  }
-}
-
-function DrawPlayer()
-{
-  const quarter = ctx.lineWidth / 4;
-  ctx.fillStyle = exitColour;
-  ctx.fillRect(CellLeft(exitCell) + w/4 + quarter, CellTop(exitCell) + h/4 + quarter, w/2, h/2);
-  ctx.fillStyle = playerColour;
-  ctx.fillRect(CellLeft(player.cell) + w/4 + quarter, CellTop(player.cell) + h/4 + quarter, w/2, h/2);
+  renderer.resize(squareSize, squareSize, window.devicePixelRatio || 1);
 }
 
 // PLAYER MOVEMENT
@@ -375,44 +266,19 @@ function HidePad()
 
 function ReSizeMaze()
 {
-  if(hideT) factor = 0.925;
-  else factor = 0.625;
-
   let vhFactor;
   if(hideT) vhFactor = 92.5;
   else vhFactor = 62.5;
-  
-  let screenWidth = window.innerWidth;
-  let screenHeight = window.innerHeight * factor;
-  let squareSize;
-  
-  if(screenWidth >= screenHeight) squareSize = screenHeight;
-  else squareSize = screenWidth;
 
   gameDiv.style.height = 'calc(var(--vh) * ' + vhFactor + ')';
   gameDiv.style.top = 'calc(var(--vh) * 7.5)';
   gameDiv.style.display = 'flex';
   gameDiv.style.justifyContent = 'center';
   gameDiv.style.alignItems = 'center';
-  
-  squareSize = squareSize * 0.9;
 
-  cWidth = squareSize;
-  cHeight = squareSize;
-
-  canvas.width = cWidth;
-  canvas.height = cHeight;
-
-  w = canvas.width / width;
-  h = canvas.height / height;
-
-  if(maze !== null)
-  {
-    ClearMaze();
-    DrawMaze();
-    DrawRoute();
-    DrawPlayer();
-  }
+  // Only the drawing changes; the maze, player and route are kept.
+  FitCanvas();
+  Draw();
 }
 
 // FLIP PAD
@@ -441,13 +307,20 @@ function FlipPad()
 function Find()
 {
   route = shortestPath(maze, player.cell, exitCell) ?? [];
-  ClearMaze();
-  DrawMaze();
-  DrawRoute();
-  DrawPlayer();
+  Draw();
 }
 
 window.addEventListener('resize', ReSizeMaze);
+
+// Moving the window to a screen with another pixel density, or browser zoom,
+// changes devicePixelRatio; redraw at the new density.
+function WatchPixelRatio()
+{
+  if(typeof window.matchMedia !== 'function') return;
+  const query = window.matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+  query.addEventListener('change', function () { ReSizeMaze(); WatchPixelRatio(); }, { once: true });
+}
+WatchPixelRatio();
 
 // Intialisation
 document.addEventListener('DOMContentLoaded', DefaultSettings);
