@@ -13,7 +13,7 @@
         <div class="flex w-full max-w-7xl h-full flex-row justify-center mx-auto sm:px-6 lg:px-8" style="height:calc(var(--vh) * 7.5)">
           <button id="ResetButton" aria-label="Restart this maze" title="Restart this maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/undoLight.svg" alt=""></button>
           <button id="NewMazeButton" aria-label="New maze" title="New maze" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/newLight.svg" alt=""></button>
-          <button id="ControllerButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/gamesLight.svg"></button>
+          <button id="ControllerButton" aria-label="Show or hide the movement controls" title="Show or hide the movement controls" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/gamesLight.svg"></button>
           <button id="OptionsButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/optionsLight.svg"></button>
           <button id="SearchButton" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/searchLight.svg"></button>
           <button id="ResetViewButton" aria-label="Fit maze to screen" title="Fit maze to screen" class="flex justify-center items-center mx-2 active:scale-95"><img class="w-3/4 h-3/4" src="./src/public/fitLight.svg" alt=""></button>
@@ -28,7 +28,15 @@
         </div>
 
         <p id="sizeError" role="alert" class="mx-auto text-red-700">Enter a whole number from 2 to 50.</p>
-    
+
+        <div class="mx-auto my-4">
+          <label for="mazeShape" class="mr-8">Shape:</label>
+          <select id="mazeShape" name="mazeShape" class="text-center w-24 rounded border border-black bg-white">
+            <option value="square">Square</option>
+            <option value="hex">Hexagon</option>
+          </select>
+        </div>
+
         <div class="mx-auto my-4">
           <label for="autonew" class="mr-8">Auto-new:</label>
           <input type="checkbox" id="autonew" name="autonew" class='hover:scale-105' checked>
@@ -56,27 +64,7 @@
     
       <div id="footerControls">
     
-        <div id="buttonHolder">
-    
-          <div id="top">
-            <div class="control"></div>
-            <button class="control active:scale-95 flex justify-center items-center border border-black rounded-lg" id="upButton"><img src="./src/public/chevronUpLight.svg"></button>
-            <div class="control"></div>
-          </div>
-    
-          <div id="mid">
-            <button class="control active:scale-95 flex justify-center items-center border border-black rounded-lg" id="leftButton"><img src="./src/public/chevronLeftLight.svg"></button>
-            <div class="control"></div>
-            <button class="control active:scale-95 flex justify-center items-center border border-black rounded-lg" id="rightButton"><img src="./src/public/chevronRightLight.svg"></button>
-          </div>
-    
-          <div id="bot">
-            <div class="control"></div>
-            <button class="control active:scale-95 flex justify-center items-center border border-black rounded-lg" id="downButton"><img src="./src/public/chevronDownLight.svg"></button>
-            <div class="control"></div>
-          </div>
-    
-        </div>
+        <svg id="directionPad" aria-label="Movement controls"></svg>
     
       </div>
   </body>

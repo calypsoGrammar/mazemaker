@@ -7,15 +7,16 @@ import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 import * as model from '../src/javascripts/maze/index.js';
 import * as render from '../src/javascripts/render/index.js';
+import * as input from '../src/javascripts/input/index.js';
 
 const root = new URL('../', import.meta.url);
 const html = readFileSync(new URL('index.html', root), 'utf8')
   // jsdom must not try to load the module itself; the harness evaluates it.
   .replace(/<script[^>]*main\.js[^>]*><\/script>/, '');
-// jsdom cannot load ES modules, so main.js's imports of the maze model and the
-// renderer are replaced by the same modules loaded here.
-const modules = { maze: model, render };
-const importPattern = /^import \{([^}]*)\} from '\.\/(maze|render)\/index\.js';$/gm;
+// jsdom cannot load ES modules, so main.js's imports of the maze model, the
+// renderer and the input adapter are replaced by the same modules loaded here.
+const modules = { maze: model, render, input };
+const importPattern = /^import \{([^}]*)\} from '\.\/(maze|render|input)\/index\.js';$/gm;
 const source = readFileSync(new URL('src/javascripts/main.js', root), 'utf8')
   .replace(importPattern, 'const {$1} = window.__modules.$2;');
 for (const name of Object.keys(modules)) {
@@ -33,6 +34,7 @@ window.__mm = {
   get route() { return route; },
   get width() { return width; },
   get height() { return height; },
+  get shape() { return shape; },
   get autoNew() { return autoNew; },
   get increment() { return increment; },
   get hideT() { return hideT; },
@@ -40,6 +42,7 @@ window.__mm = {
   get canvas() { return canvas; },
   get geometry() { return geometry; },
   get renderer() { return renderer; },
+  get pad() { return pad; },
   stepMs: STEP_MS,
   Find,
   NewMaze,
@@ -114,8 +117,13 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
     press(key) {
       document.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true }));
     },
+    // Clicks an element. SVG elements (the direction pad) have no click(), so
+    // they get a click event as a tap would send.
     click(id) {
-      document.getElementById(id).click();
+      const element = document.getElementById(id);
+      if (!element) throw new Error(`no element #${id}`);
+      if (typeof element.click === 'function') element.click();
+      else element.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
     },
     // Number of animation frames waiting to run.
     get pendingFrames() { return frames.size; },
@@ -161,14 +169,17 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
     // Applies the Auto-new and Auto-increment checkboxes as they are, then
     // runs main.js's StartMaze() at any size, including ones the size field
     // refuses (rectangles, or sides outside 2-50).
-    generate(cols, rows = cols) {
+    // `shape` defaults to the shape in play.
+    generate(cols, rows = cols, shape = undefined) {
       window.__mm.ReadToggles();
-      window.__mm.StartMaze(cols, rows);
+      window.__mm.StartMaze(cols, rows, shape);
     },
-    // Types `size` into the settings and presses Generate, as a player would.
-    generateFromSettings(size) {
+    // Types `size` into the settings, picks `shape` if given, and presses
+    // Generate, as a player would.
+    generateFromSettings(size, shape = undefined) {
       if (document.getElementById('settingsMenu').style.display === 'none') this.click('OptionsButton');
       document.getElementById('display001').value = size;
+      if (shape !== undefined) document.getElementById('mazeShape').value = shape;
       this.click('generateMaze');
     },
   };

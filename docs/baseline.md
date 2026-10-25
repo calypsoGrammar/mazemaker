@@ -200,8 +200,13 @@ CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
    taps may trigger double-tap zoom or delay on mobile browsers. Holding a pad
    button does not repeat, whereas holding a key does. This was inferred from the
    code and needs checking on a device.
+   *Since CAL-1238:* the D-pad is an SVG pad with `touch-action: manipulation`
+   (`docs/controls.md`). Holding a button still does not repeat. Still to be
+   checked on a device.
 10. **Accessibility.** The header and D-pad buttons are icon-only `<img>` elements
     with no `alt` text or `aria-label`. The maze has no text alternative.
+    *Since CAL-1238:* the pad buttons have `aria-label`s, and so does the
+    show/hide-controls button. The Options and Search buttons still have none.
 11. **Dead code.** `iUp`/`iLeft`/`iRight`/`iDown` look up elements that do not exist,
     `FlipPad()` references an undefined `flipState` and is never called, and
     `mousePos`, `t2`, `currentPath` and the `visited` fill in `DrawMaze` do nothing.
