@@ -17,3 +17,4 @@ CI runs `npm ci`, `npm test` and `npm run build` on every pull request.
 `docs/rendering.md` describes the geometry, viewport and Canvas 2D renderer in `src/javascripts/render/`.
 `docs/controls.md` describes the input adapter and SVG direction pad in `src/javascripts/input/`.
 `docs/hex.md` describes hexagonal mazes.
+`docs/triangle.md` describes triangular mazes.

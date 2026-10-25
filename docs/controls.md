@@ -20,9 +20,11 @@ centre. It is in radians, like `Math.atan2`, with y pointing down, so up is
 Square and hex cells always have the same set of directions
 (`DIRECTION_FRAMES`). For these tilings the list always holds the full set, in
 a fixed order, so the pad buttons stay in place. A direction off the edge has
-`cell: null` and is closed. Triangle and polar cells list only their own
-neighbours, so their set changes from cell to cell. A polar cell can have
-several outward passages.
+`cell: null` and is closed. Triangles (CAL-1241) have one set for each
+orientation (`TRIANGLE_FRAMES`): `LEFT`, `RIGHT` and `DOWN` for a cell
+pointing up, `LEFT`, `RIGHT` and `UP` for a cell pointing down, always all
+three. Polar cells list only their own neighbours, so their set changes from
+cell to cell. A polar cell can have several outward passages.
 
 ## Keyboard
 
@@ -30,10 +32,16 @@ several outward passages.
 in play. `pickDirection` picks the open direction nearest that angle, within
 the tolerance. If two open directions are equally near, it picks nothing.
 
-On square (and triangle and polar) grids, the arrow keys and WASD, in either
+On square (and polar) grids, the arrow keys and WASD, in either
 case, name an angle (`keyAngle`) with `DEFAULT_TOLERANCE` (60°). On a square
 grid every other direction is 90° away, so each key only moves its own way,
 as before.
+
+On triangle grids (CAL-1241) the same keys use `EXACT_TOLERANCE` (30°). Left
+and Right take the cell's left or right side, which faces 30° above or below
+level. Up takes the level side of a cell pointing down, and Down the level
+side of a cell pointing up. Up on a cell pointing up (or Down on one pointing
+down) does nothing: it never moves through a slanted side.
 
 On hex grids (CAL-1240), six-way keys (`HEX_KEYS`) each name one side of the
 hexagon, with `EXACT_TOLERANCE` (30°, half the angle between sides). A key

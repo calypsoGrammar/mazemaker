@@ -2,7 +2,7 @@
 
 The maze code in `src/javascripts/maze/` does not depend on the grid shape. It
 has no screen coordinates and no fixed set of directions. `main.js` uses it for
-the square and hexagonal games (`docs/hex.md`), and keeps input and the player. Drawing is in
+the square, hexagonal and triangular games (`docs/hex.md`, `docs/triangle.md`), and keeps input and the player. Drawing is in
 `src/javascripts/render/` (CAL-1235, `docs/rendering.md`).
 
 | Layer | Where | Knows about |
