@@ -55,6 +55,22 @@ number.
 - `consistencyErrors()` checks the stored data and returns its problems. It
   is used by the tests.
 
+## Shortest path (CAL-1234 / MM-V1-05)
+
+`shortestPath(maze, from, to)` is the one solver for every topology. It is a
+breadth-first search over the passage graph, which is unweighted, so the first
+route it finds to `to` is a shortest one. It reads only
+`traversableNeighbours`, so a route never crosses a wall. It returns the cells
+from `from` to `to` (both included), `[from]` when they are the same cell, and
+`null` when `to` cannot be reached. Each cell is queued at most once, so it
+ends on any maze, including mazes with loops, dead ends or parts that are cut
+off. It throws a `RangeError` when either cell is not in the maze.
+
+In the game, Search calls it from `player.cell` to the exit. After that, every
+move recomputes the route from the player's new cell, until the next maze is
+made. An unreachable exit shows no route. The solver has no access to the
+canvas: `main.js` draws the cells it returns.
+
 ## Changes in the game
 
 Gameplay is unchanged for every maze the UI can make. Cell IDs, the start

@@ -99,6 +99,100 @@ for (const [name, make] of Object.entries(TOPOLOGIES)) {
   });
 }
 
+// Shortest-path solver (CAL-1234 / MM-V1-05).
+
+// Distances from `from` by repeated relaxation over open passages, independent
+// of the breadth-first search in navigate.js. Infinity means unreachable.
+function distances(maze, from) {
+  const dist = Array(maze.topology.size).fill(Infinity);
+  dist[from] = 0;
+  for (let changed = true; changed;) {
+    changed = false;
+    for (const [a, b] of maze.passages()) {
+      if (dist[a] + 1 < dist[b]) { dist[b] = dist[a] + 1; changed = true; }
+      if (dist[b] + 1 < dist[a]) { dist[a] = dist[b] + 1; changed = true; }
+    }
+  }
+  return dist;
+}
+
+// A perfect maze with extra passages opened, so there are loops and several
+// routes between cells, and some passages closed, so parts may be cut off.
+function rewired(make, seed) {
+  const random = seeded(seed);
+  const { maze } = growingTree(make(), { random });
+  const t = maze.topology;
+  for (const a of t.cells()) {
+    for (const b of t.neighbours(a)) {
+      if (a < b && random() < 0.3) maze.link(a, b);
+      else if (a < b && random() < 0.05) maze.unlink(a, b);
+    }
+  }
+  return maze;
+}
+
+function assertRoute(maze, path, from, to, at) {
+  assert.equal(path[0], from, `${at} starts at ${from}`);
+  assert.equal(path.at(-1), to, `${at} ends at ${to}`);
+  for (let k = 1; k < path.length; k++) {
+    assert.ok(maze.topology.areNeighbours(path[k - 1], path[k]), `${at} step ${k} jumps`);
+    assert.ok(maze.isLinked(path[k - 1], path[k]), `${at} step ${k} crosses a wall`);
+  }
+}
+
+for (const [name, make] of Object.entries(TOPOLOGIES)) {
+  test(`${name}: shortestPath is shortest in mazes with loops, and null when the target is cut off`, () => {
+    for (const seed of [1, 2, 3]) {
+      const maze = rewired(make, seed);
+      const last = maze.topology.size - 1;
+      for (const from of new Set([0, Math.floor(last / 2), last])) {
+        const dist = distances(maze, from);
+        for (const to of maze.topology.cells()) {
+          const path = shortestPath(maze, from, to);
+          const at = `seed ${seed} ${from}->${to}`;
+          if (dist[to] === Infinity) {
+            assert.equal(path, null, at);
+            continue;
+          }
+          assertRoute(maze, path, from, to, at);
+          assert.equal(path.length - 1, dist[to], `${at} is not shortest`);
+        }
+      }
+    }
+  });
+}
+
+test('shortestPath ends on a maze with every passage open and on one with none', () => {
+  const t = hexTopology(30, 30);
+  const open = new Maze(t);
+  for (const a of t.cells()) for (const b of t.neighbours(a)) if (a < b) open.link(a, b);
+  const last = t.size - 1;
+  const path = shortestPath(open, 0, last);
+  assertRoute(open, path, 0, last, 'open hex');
+  assert.equal(path.length - 1, distances(open, 0)[last]);
+  const closed = new Maze(t);
+  assert.equal(shortestPath(closed, 0, last), null);
+  assert.deepEqual(shortestPath(closed, 5, 5), [5]);
+});
+
+test('shortestPath from a dead end goes back out, and into a dead end comes in', () => {
+  // Cells are numbered column by column: 0 - 2 - 4 is the top row, 1 and 5 are
+  // dead ends below 0 and 4, and 3 is walled in.
+  const t = squareTopology(3, 2);
+  const maze = Maze.fromPassages(t, [[0, 2], [2, 4], [0, 1], [4, 5]]);
+  assert.deepEqual(shortestPath(maze, 1, 5), [1, 0, 2, 4, 5]);
+  assert.deepEqual(shortestPath(maze, 5, 1), [5, 4, 2, 0, 1]);
+  assert.equal(shortestPath(maze, 1, 3), null);
+});
+
+test('shortestPath rejects cells that are not in the maze', () => {
+  const maze = growingTree(squareTopology(4, 4), { random: seeded(1) }).maze;
+  for (const bad of [-1, 16, 1.5, NaN, '3', null, undefined]) {
+    assert.throws(() => shortestPath(maze, bad, 0), RangeError, `from ${bad}`);
+    assert.throws(() => shortestPath(maze, 0, bad), RangeError, `to ${bad}`);
+  }
+});
+
 test('square topology numbers cells column by column, as the game always has', () => {
   const t = squareTopology(4, 3);
   assert.equal(t.kind, 'square');
