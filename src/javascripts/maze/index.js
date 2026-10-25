@@ -3,5 +3,7 @@
 
 export { Topology, squareTopology, hexTopology, triangleTopology, polarTopology } from './topology.js';
 export { Maze } from './maze.js';
-export { growingTree } from './generate.js';
+export {
+  growingTree, STRATEGIES, STRATEGY_NAMES, DEFAULT_STRATEGY, MAX_CELLS, resolveStrategy, seededRandom,
+} from './generate.js';
 export { reachable, shortestPath, isPerfect } from './navigate.js';
