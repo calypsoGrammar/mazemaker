@@ -1,5 +1,7 @@
 "use strict";
 
+import { squareTopology, growingTree, shortestPath } from './maze/index.js';
+
 function CalculateVh()
 {
   let vh = window.innerHeight * 0.01;
@@ -12,106 +14,31 @@ window.addEventListener('orientationchange', CalculateVh);
 
 // GAME classes
 
-class Vector
-{
-  constructor(x, y)
-  {
-    this.x = x;
-    this.y = y;
-  }
-}
-
-class Cell
-{
-  constructor()
-  {
-    this.index = 0;
-
-    this.up = true;
-    this.down = true;
-    this.left = true;
-    this.right = true;
-
-    this.leftIndex = -1;
-    this.rightIndex = -1;
-    this.upIndex = -1;
-    this.downIndex = -1;
-
-    this.visited = false;
-    this.target = false;
-    
-    this.row = 0;
-    this.column = 0;
-
-    this.rowPos = 0;
-    this.columnPos = 0;
-  }
-}
-
+// The player's position is a cell ID; where it is drawn comes from the layout.
 class Player
 {
   constructor()
   {
-    this.x = 0;
-    this.y = 0;
-    this.index = 0;
+    this.cell = 0;
   }
 
   Move(DIRECTION)
   {
-    if(this.CheckValidPos(DIRECTION))
-    {
-      ClearPlayer();
-      if(DIRECTION === "UP")
-      {
-        this.y -= h;
-        this.index = parseInt(this.index) - 1;
-      }
-      else if (DIRECTION === "DOWN")
-      {
-        this.y += h;
-        this.index = parseInt(this.index) + 1;
-      }
-      else if (DIRECTION === "LEFT")
-      {
-        this.x -= w;
-        this.index = parseInt(this.index) - parseInt(width);
-      }
-      else if (DIRECTION === "RIGHT")
-      {
-        this.x += w;
-        this.index = parseInt(this.index) + parseInt(width);
-      }
-      ClearMaze();
-      DrawMaze();
-      DrawRoute();
-      DrawPlayer();
-      this.CheckWin();
-    }
-  }
-
-  CheckValidPos(DIRECTION)
-  {
-     // players row
-    let r = Math.floor(this.x / w);
-    // players column
-    let c = Math.floor(this.y / h);
-    // index of the cell player is in
-    let i = r * height + c;
-    this.index = i;
-
-    if(DIRECTION === "UP" && maze[i].up === true) return false;
-    if(DIRECTION === "DOWN" && maze[i].down === true) return false;
-    if(DIRECTION === "LEFT" && maze[i].left === true) return false;
-    if(DIRECTION === "RIGHT" && maze[i].right === true) return false;
-    return true;
+    if(maze === null) return;
+    const next = maze.move(this.cell, DIRECTION);
+    if(next === null) return;
+    this.cell = next;
+    ClearMaze();
+    DrawMaze();
+    DrawRoute();
+    DrawPlayer();
+    this.CheckWin();
   }
 
   CheckWin()
   {
-    if(Math.floor(this.x) === Math.floor(maze[maze.length-1].rowPos + w/2) && 
-       Math.floor(this.y) === Math.floor(maze[maze.length-1].columnPos - h/2))
-	  {
+    if(this.cell === exitCell)
+    {
       if(autoNew)
       {
         if(increment && width < 50)
@@ -192,10 +119,13 @@ const ctx = document.getElementById("ctx").getContext("2d");
 
 // GAME VARIABLES
 
-let width, height, size, w, h, index, nowCell, running, rnd, position, autoNew, t1, t2, t3, increment, cWidth, cHeight, factor;
-let maze = [];
-let history1 = [];
-let mousePos = new Vector();
+let width, height, w, h, autoNew, increment, cWidth, cHeight, factor;
+// topology: the cells and their neighbours. maze: the passages carved through it.
+let topology = null;
+let maze = null;
+let exitCell = 0;
+// Cells of the route shown by Search, from the player's cell to the exit.
+let route = [];
 let player = new Player();
 
 function ToggleSettings()
@@ -250,9 +180,6 @@ function AutoIncrement()
 
 function GenerateCustomMaze()
 {
-  width = Number(display001.value);
-  height = Number(display001.value);
-
   autoNew = aNew.checked;
   increment = aIncrement.checked;
 
@@ -263,145 +190,27 @@ function GenerateCustomMaze()
 
 function NewMaze()
 {
-  maze.length = 0;
-  history1.length = 0;
-  activePath = new Path();
+  const cols = Number(display001.value);
+	const rows = Number(display001.value);
 
-  width = Number(display001.value);
-	height = Number(display001.value);
-	
 	autoNew = aNew.checked;
 	increment = aIncrement.checked;
+
+  // Throws a RangeError for a size that is not a positive whole number, before
+  // any state changes, so the previous maze stays in play.
+  topology = squareTopology(cols, rows);
+  width = cols;
+  height = rows;
+  maze = growingTree(topology, { random: () => Math.random() }).maze;
+  exitCell = topology.size - 1;
+  route = [];
+  player.cell = 0;
 
   canvas.width = cWidth;
   canvas.height = cHeight;
 
-  size = width * height;
-  
   w = canvas.width / width;
   h = canvas.height / height;
-  
-  index = 0;
-  
-  nowCell = maze[0];
-  
-  running = true;
-  
-  rnd = 0;
-  
-  t1 = Math.random();
-  t2 = Math.random();
-  t3 = Math.random();
-
-  for(let x = 0; x < width; x++)
-  {
-    for(let y = 0; y < height; y++)
-	  {
-      let newCell = new Cell();
-      newCell.row = x;
-      newCell.column = y;
-      newCell.rowPos = x * w;
-      newCell.columnPos = y * h + h;
-      newCell.index = index;
-      if((index + height) <= (width * height)) newCell.rightIndex = index + height;
-      else newCell.rightIndex = -1;
-      if((index - height) >= 0) newCell.leftIndex = index - height;
-      else newCell.leftIndex = -1;
-      if(y < height - 1) newCell.downIndex = index + 1;
-      else newCell.downIndex = -1;
-      if(y > 0) newCell.upIndex = index - 1;
-      else newCell.upIndex = -1;
-      if(index === ( ( width * height ) - 1 )) newCell.target = true;
-      maze.push(newCell);
-      index++;
-    }
-  }
-  MakeMaze();
-}
-
-function MakeMaze()
-{
-  rnd = Math.floor(Math.random() * maze.length);
-  
-  history1.push(rnd);
-  
-  position = history1.length - 1;
-
-  let counter = 0;
-
-  while(running)
-  {
-    counter++;
-
-    if(counter > 100000000) break;
-
-    let choose = [];
-
-    maze[rnd].visited = true;
-
-    let upI = rnd -1;
-    let downI = rnd + 1;
-    let leftI = rnd - height;
-    let rightI = rnd + height;
-
-    if(upI >= 0 && upI < maze.length && maze[rnd].column != 0)
-      if(maze[upI].visited === false)
-	    {
-        choose.push(upI);
-      }
-    if(downI >= 0 && downI < maze.length && maze[rnd].column != height - 1)
-      if(maze[downI].visited === false)
-	    {
-        choose.push(downI);
-      }
-    if(leftI >= 0 && leftI < maze.length && maze[rnd].row != 0)
-      if(maze[leftI].visited === false)
-	    {
-        choose.push(leftI);
-      }
-    if(rightI >= 0 && rightI < maze.length && maze[rnd].row != width - 1)
-      if(maze[rightI].visited === false)
-	    {
-        choose.push(rightI);
-      }
-
-    if(choose.length > 0)
-	  {
-      let pick = Math.floor(Math.random() * choose.length);
-      if(choose[pick] === upI)
-	    {
-        maze[rnd].up = false;
-        maze[upI].down = false;
-      }
-      if(choose[pick] === downI)
-	    {
-        maze[rnd].down = false;
-        maze[downI].up = false;
-      }
-      if(choose[pick] === leftI)
-	    {
-        maze[rnd].left = false;
-        maze[leftI].right = false;
-      }
-      if(choose[pick] === rightI)
-	    {
-        maze[rnd].right = false;
-        maze[rightI].left = false;
-      }
-      history1.push(choose[pick]);
-      maze[choose[pick]].visited = true;
-      GetNext();
-    }
-    else
-    {
-      history1.splice(position, 1);
-      GetNext();
-    }
-  }
-
-  player.x = maze[0].rowPos + w / 2;
-  player.y = maze[0].columnPos - h / 2;
-  player.index = 0;
 
   ClearMaze();
   DrawMaze();
@@ -409,35 +218,25 @@ function MakeMaze()
   DrawPlayer();
 }
 
-function GetNext()
+// DRAW FUNCTIONS
+// Square layout: the only place cells get screen coordinates.
+
+function CellLeft(cell)
 {
-  if(history1.length > 0)
-  {
-    let type = Math.random();
-    if(type >= t1)
-	  {
-      rnd = history1[history1.length - 1];
-      position = history1.length - 1;
-    }
-    else if(type < t1 && type >= t3)
-	  {
-      rnd = history1[0];
-      position = 0;
-    }
-    else if(type < t3)
-    {
-      let pickR = Math.floor(Math.random() * history1.length);
-      rnd = history1[pickR];
-      position = pickR;
-    }
-  } 
-  else
-  {
-    running = false;
-  }
+  return topology.coordsOf(cell).column * w;
 }
 
-// DRAW FUNCTIONS
+function CellTop(cell)
+{
+  return topology.coordsOf(cell).row * h;
+}
+
+// True when there is no passage from `cell` in direction `label`, including
+// the outer edge of the maze.
+function IsWall(cell, label)
+{
+  return maze.move(cell, label) === null;
+}
 
 function ClearMaze()
 {
@@ -454,39 +253,36 @@ function DrawMaze()
   ctx.rect(0, 0, canvas.width, canvas.height);
   ctx.stroke();
   
-  for(let x = 0; x < maze.length; x++)
+  for(const cell of topology.cells())
   {
-    if(maze[x].visited === true)
+    const left = CellLeft(cell);
+    const bottom = CellTop(cell) + h;
+    if(IsWall(cell, "UP"))
 	  {
       ctx.beginPath();
-      ctx.fill();
-    }
-    if(maze[x].up === true)
-	  {
-      ctx.beginPath();
-      ctx.moveTo(maze[x].rowPos + half, maze[x].columnPos - h + half);
-      ctx.lineTo(maze[x].rowPos + w + half, maze[x].columnPos - h + half);
+      ctx.moveTo(left + half, bottom - h + half);
+      ctx.lineTo(left + w + half, bottom - h + half);
       ctx.stroke();
     }
-    if(maze[x].down === true)
+    if(IsWall(cell, "DOWN"))
 	  {
       ctx.beginPath();
-      ctx.moveTo(maze[x].rowPos + half, maze[x].columnPos + half);
-      ctx.lineTo(maze[x].rowPos + w + half, maze[x].columnPos + half);
+      ctx.moveTo(left + half, bottom + half);
+      ctx.lineTo(left + w + half, bottom + half);
       ctx.stroke();
     }
-    if(maze[x].left === true)
+    if(IsWall(cell, "LEFT"))
 	  {
       ctx.beginPath();
-      ctx.moveTo(maze[x].rowPos, maze[x].columnPos - extra);
-      ctx.lineTo(maze[x].rowPos, maze[x].columnPos - h);
+      ctx.moveTo(left, bottom - extra);
+      ctx.lineTo(left, bottom - h);
       ctx.stroke();
     }
-    if(maze[x].right === true)
+    if(IsWall(cell, "RIGHT"))
 	  {
       ctx.beginPath();
-      ctx.moveTo(maze[x].rowPos + w, maze[x].columnPos + extra);
-      ctx.lineTo(maze[x].rowPos + w, maze[x].columnPos - h);
+      ctx.moveTo(left + w, bottom + extra);
+      ctx.lineTo(left + w, bottom - h);
       ctx.stroke();
     }
   }
@@ -515,26 +311,21 @@ function DrawMaze()
 
 function DrawRoute()
 {
-  if(activePath.path.length === 0) return;
+  if(route.length === 0) return;
   ctx.fillStyle = routeColour;
-  for(let i = 0; i < activePath.path.length; i++)
+  for(const cell of route)
   {
-    ctx.fillRect(maze[activePath.path[i]].rowPos, maze[activePath.path[i]].columnPos - h, w + ctx.lineWidth / 16, h + ctx.lineWidth / 16);
+    ctx.fillRect(CellLeft(cell), CellTop(cell), w + ctx.lineWidth / 16, h + ctx.lineWidth / 16);
   }
-}
-
-function ClearPlayer()
-{
-  ctx.clearRect(player.x - w/3, player.y - h/3, w/1.5, h/1.5);
 }
 
 function DrawPlayer()
 {
   const quarter = ctx.lineWidth / 4;
   ctx.fillStyle = exitColour;
-  ctx.fillRect(maze[maze.length-1].rowPos + w/4 + quarter, maze[maze.length-1].columnPos - h/2 - h/4 + quarter, w/2, h/2);
+  ctx.fillRect(CellLeft(exitCell) + w/4 + quarter, CellTop(exitCell) + h/4 + quarter, w/2, h/2);
   ctx.fillStyle = playerColour;
-  ctx.fillRect(player.x - w/4 + quarter, player.y - h/4 + quarter, w/2, h/2);
+  ctx.fillRect(CellLeft(player.cell) + w/4 + quarter, CellTop(player.cell) + h/4 + quarter, w/2, h/2);
 }
 
 // PLAYER MOVEMENT
@@ -572,7 +363,7 @@ function HidePad()
   {
     footerControls.style.display = "";
   }
-  if(maze.length > 0)
+  if(maze !== null)
   {
     ReSizeMaze();
   }
@@ -608,27 +399,10 @@ function ReSizeMaze()
   canvas.width = cWidth;
   canvas.height = cHeight;
 
-  size = width * height;
-  
   w = canvas.width / width;
   h = canvas.height / height;
 
-  let counter = 0;
-
-  for(let x = 0; x < width; x++)
-  {
-    for(let y = 0; y < height; y++)
-	  {
-      maze[counter].rowPos = x * w;
-      maze[counter].columnPos = y * h + h;
-      counter++;
-    }
-  }
-
-  player.x = maze[player.index].rowPos + w / 2;
-  player.y = maze[player.index].columnPos - h / 2;
-
-  if(maze.length > 0)
+  if(maze !== null)
   {
     ClearMaze();
     DrawMaze();
@@ -658,139 +432,11 @@ function FlipPad()
   }
 }
 
-class Path
-{
-  constructor()
-  {
-    this.path = [];
-    this.completed = false;
-  }
-}
-
-let paths = [];
-let activePath = new Path();
-let currentPath = new Path();
+// SEARCH
 
 function Find()
 {
-  paths = [];
-  let check = player.index;
-  let path = new Path();
-  path.path.push(check);
-  paths.push(path);
-  let done = false;
-  let iterator = 0;
-
-  while(!done)
-  {
-    iterator++;
-    if(iterator > 10000) break;
-
-    // if there are any paths, sort them and select the shortest one. Set check to the last position of that path.
-    if(paths.length > 0)
-    {
-      let smallest = paths[0].path.length;
-      let index = 0;
-      for(let i = 0; i < paths.length; i++)
-      {
-        if(paths[i].path.length < smallest)
-        {
-          smallest = paths[i].path.length;
-          index = i;
-        }
-      }
-      path = paths[index];
-      check = path.path[path.path.length - 1];
-    }
-
-    // is there a cell in that direction and don't backtrack
-    if(maze[check].left === false && !path.path.includes(maze[check].leftIndex))
-    {
-      if(maze[check].left === false) // can you walk to that cell
-      {
-        let newPath = new Path();
-        for(let i = 0; i < path.path.length; i++)
-        {
-          newPath.path.push(path.path[i]);
-        }
-        newPath.path.push(maze[check].leftIndex);
-        paths.push(newPath);
-        if(maze[maze[check].leftIndex].target === true) // is that cell the target destination, in which case end
-        {
-          newPath.completed = true;
-          currentPath = paths.indexOf(newPath);
-          activePath = newPath;
-          done = true;
-          break;
-        }
-      }
-    }
-    if(maze[check].right === false && !path.path.includes(maze[check].rightIndex))
-    {
-      if(maze[check].right === false) // can you walk to that cell
-      {
-        let newPath = new Path();
-        for(let i = 0; i < path.path.length; i++)
-        {
-          newPath.path.push(path.path[i]);
-        }
-        newPath.path.push(maze[check].rightIndex);
-        paths.push(newPath);
-        if(maze[maze[check].rightIndex].target === true) // is that cell the target destination, in which case end
-        {
-          newPath.completed = true;
-          currentPath = paths.indexOf(newPath);
-          activePath = newPath;
-          done = true;
-          break;
-        }
-      }
-    }
-    if(maze[check].up === false && !path.path.includes(maze[check].upIndex))
-    {
-      if(maze[check].up === false) // can you walk to that cell
-      {
-        let newPath = new Path();
-        for(let i = 0; i < path.path.length; i++)
-        {
-          newPath.path.push(path.path[i]);
-        }
-        newPath.path.push(maze[check].upIndex);
-        paths.push(newPath);
-        if(maze[maze[check].upIndex].target === true) // is that cell the target destination, in which case end
-        {
-          newPath.completed = true;
-          currentPath = paths.indexOf(newPath);
-          activePath = newPath;
-          done = true;
-          break;
-        }
-      }
-    }
-    if(maze[check].down === false && !path.path.includes(maze[check].downIndex))
-    {
-      if(maze[check].down === false) // can you walk to that cell
-      {
-        let newPath = new Path();
-        for(let i = 0; i < path.path.length; i++)
-        {
-          newPath.path.push(path.path[i]);
-        }
-        newPath.path.push(maze[check].downIndex);
-        paths.push(newPath);
-        if(maze[maze[check].downIndex].target === true) // is that cell the target destination, in which case end
-        {
-          newPath.completed = true;
-          currentPath = paths.indexOf(newPath);
-          activePath = newPath;
-          done = true;
-          break;
-        }
-      }
-    }
-    let removeAt = paths.indexOf(path);
-    paths.splice(removeAt, 1);
-  }
+  route = shortestPath(maze, player.cell, exitCell) ?? [];
   ClearMaze();
   DrawMaze();
   DrawRoute();

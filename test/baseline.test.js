@@ -27,15 +27,14 @@ test('first load: 5x5 maze, player top-left, exit bottom-right, settings hidden'
   const { state, document } = g;
   assert.equal(state.width, 5);
   assert.equal(state.height, 5);
-  assert.equal(state.maze.length, 25);
+  assert.equal(state.topology.size, 25);
   assert.equal(document.getElementById('display001').value, '5');
   assert.equal(document.getElementById('autonew').checked, true);
   assert.equal(document.getElementById('autoincrement').checked, true);
   assert.equal(document.getElementById('settingsMenu').style.display, 'none');
-  assert.equal(state.player.index, 0);
-  assert.equal(state.maze.at(-1).target, true);
-  assert.equal(state.maze.filter((c) => c.target).length, 1);
-  assert.equal(state.activePath.path.length, 0);
+  assert.equal(state.player.cell, 0);
+  assert.equal(state.exitCell, 24);
+  assert.equal(state.route.length, 0);
 });
 
 test('canvas is a square sized to 90% of the smaller of the width and 62.5% of the height', async () => {
@@ -59,9 +58,9 @@ test('search (magnifier) highlights the shortest route from the player to the ex
     // Move off the start so the route begins at the player's current cell.
     const [first] = neighbours(g.state.maze, n, 0);
     walk(g, [first[0]]);
-    const from = g.state.player.index;
+    const from = g.state.player.cell;
     g.click('SearchButton');
-    const route = g.state.activePath.path;
+    const route = g.state.route;
     const expected = shortestRoute(g.state.maze, n, from, n * n - 1);
     assert.equal(route[0], from);
     assert.equal(route.at(-1), n * n - 1);
@@ -76,10 +75,10 @@ test('search (magnifier) highlights the shortest route from the player to the ex
 test('the highlighted route stays as drawn when the player moves', async () => {
   const g = await gameOfSize(10, { autoNew: false });
   g.click('SearchButton');
-  const before = [...g.state.activePath.path];
+  const before = [...g.state.route];
   const [first] = neighbours(g.state.maze, 10, 0);
   walk(g, [first[0]]);
-  assert.deepEqual([...g.state.activePath.path], before);
+  assert.deepEqual([...g.state.route], before);
 });
 
 for (const [name, input] of [
@@ -92,15 +91,15 @@ for (const [name, input] of [
     const { maze } = g.state;
     // From the start, every walled direction is refused and every open one moves.
     for (const [dir, delta] of [['UP', -1], ['DOWN', 1], ['LEFT', -8], ['RIGHT', 8]]) {
-      const open = maze[0][dir.toLowerCase()] === false;
+      const open = neighbours(maze, 8, 0).some(([d]) => d === dir);
       input(g, [dir]);
-      assert.equal(g.state.player.index, open ? delta : 0, `${dir} from start`);
+      assert.equal(g.state.player.cell, open ? delta : 0, `${dir} from start`);
       if (open) input(g, [{ UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' }[dir]]);
-      assert.equal(g.state.player.index, 0);
+      assert.equal(g.state.player.cell, 0);
     }
     const route = shortestRoute(maze, 8, 0, 63);
     input(g, route.dirs);
-    assert.equal(g.state.player.index, 63);
+    assert.equal(g.state.player.cell, 63);
   });
 }
 
@@ -108,36 +107,36 @@ test('upper-case WASD (Shift or Caps Lock) is ignored', async () => {
   const g = await gameOfSize(6, { autoNew: false });
   const [[dir]] = neighbours(g.state.maze, 6, 0);
   g.key(WASD[dir].toUpperCase());
-  assert.equal(g.state.player.index, 0);
+  assert.equal(g.state.player.cell, 0);
 });
 
 test('reaching the exit with auto-new and auto-increment starts a maze one size larger', async () => {
   const g = await gameOfSize(5);
   const old = g.state.maze;
   walk(g, shortestRoute(old, 5, 0, 24).dirs);
-  assert.equal(g.state.maze.length, 36);
+  assert.equal(g.state.topology.size, 36);
   assert.equal(g.document.getElementById('display001').value, '6');
-  assert.equal(g.state.player.index, 0);
+  assert.equal(g.state.player.cell, 0);
 });
 
 test('auto-increment stops at size 50', async () => {
   const g = await gameOfSize(50);
   walk(g, shortestRoute(g.state.maze, 50, 0, 2499).dirs);
   assert.equal(g.state.width, 50);
-  assert.equal(g.state.player.index, 0);
+  assert.equal(g.state.player.cell, 0);
 });
 
 test('reaching the exit with auto-new on and auto-increment off starts a new maze of the same size', async () => {
   const g = await gameOfSize(5, { increment: false });
   walk(g, shortestRoute(g.state.maze, 5, 0, 24).dirs);
-  assert.equal(g.state.maze.length, 25);
-  assert.equal(g.state.player.index, 0);
+  assert.equal(g.state.topology.size, 25);
+  assert.equal(g.state.player.cell, 0);
 });
 
 test('reaching the exit with auto-new off leaves the player on the exit', async () => {
   const g = await gameOfSize(5, { autoNew: false });
   walk(g, shortestRoute(g.state.maze, 5, 0, 24).dirs);
-  assert.equal(g.state.player.index, 24);
+  assert.equal(g.state.player.cell, 24);
 });
 
 test('settings button toggles the settings panel; Generate applies size and toggles and closes it', async () => {
@@ -154,21 +153,21 @@ test('settings button toggles the settings panel; Generate applies size and togg
   g.click('autoincrement');
   g.click('generateMaze');
   assert.equal(menu.style.display, 'none');
-  assert.equal(g.state.maze.length, 144);
+  assert.equal(g.state.topology.size, 144);
   assert.equal(g.state.autoNew, false);
   assert.equal(g.state.increment, false);
 });
 
 test('reset (undo icon) makes a new maze at the size currently in the settings field', async () => {
   const g = await loadGame();
-  const old = g.state.maze.map((c) => [c.up, c.down, c.left, c.right].join());
+  const old = JSON.stringify(g.state.maze.passages());
   g.document.getElementById('display001').value = 7;
   g.click('ResetButton');
-  assert.equal(g.state.maze.length, 49);
+  assert.equal(g.state.topology.size, 49);
   g.document.getElementById('display001').value = 5;
   g.click('ResetButton');
-  assert.equal(g.state.maze.length, 25);
-  assert.notDeepEqual(g.state.maze.map((c) => [c.up, c.down, c.left, c.right].join()), old);
+  assert.equal(g.state.topology.size, 25);
+  assert.notEqual(JSON.stringify(g.state.maze.passages()), old);
 });
 
 test('controller button hides the on-screen pad and enlarges the canvas, keeping the player cell', async () => {
@@ -179,7 +178,7 @@ test('controller button hides the on-screen pad and enlarges the canvas, keeping
   g.click('ControllerButton');
   assert.equal(g.document.getElementById('footerControls').style.display, 'none');
   assert.ok(g.state.canvas.width > small);
-  assert.equal(g.state.player.index, cell);
+  assert.equal(g.state.player.cell, cell);
   g.click('ControllerButton');
   assert.equal(g.document.getElementById('footerControls').style.display, '');
   assert.equal(g.state.canvas.width, small);

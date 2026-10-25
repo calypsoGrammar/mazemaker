@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MOVES, assertPerfectMaze, loadGame, neighbours, shortestRoute } from './harness.js';
+import { MOVES, assertPerfectMaze, loadGame, neighbours, shortestRoute, step } from './harness.js';
 
 const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 const OPPOSITE = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
@@ -30,14 +30,7 @@ async function gameAt(cols, rows, { autoNew = false, increment = false, seed = c
   return g;
 }
 
-// The cell the player is drawn in, from its canvas position. This does not
-// rely on player.index (see the known defect below).
-function playerCell(g, cols, rows) {
-  const { player, canvas } = g.state;
-  const x = Math.floor(player.x / (canvas.width / cols));
-  const y = Math.floor(player.y / (canvas.height / rows));
-  return { x, y, index: x * rows + y };
-}
+const playerCell = (g) => g.state.player.cell;
 
 for (const [cols, rows] of GEOMETRIES) {
   const at = `${cols}x${rows}`;
@@ -47,23 +40,21 @@ for (const [cols, rows] of GEOMETRIES) {
       const g = await gameAt(cols, rows, { seed });
       const { maze } = g.state;
       assertPerfectMaze(assert, maze, cols, rows);
-      assert.deepEqual(playerCell(g, cols, rows), { x: 0, y: 0, index: 0 });
-      assert.deepEqual([...maze.keys()].filter((i) => maze[i].target), [cols * rows - 1]);
+      assert.equal(playerCell(g), 0);
+      assert.equal(g.state.exitCell, cols * rows - 1);
+      assert.deepEqual(maze.topology.coordsOf(g.state.exitCell), { column: cols - 1, row: rows - 1 });
     }
   });
 
-  test(`${at}: generation stops by exhausting its work list, within a bounded number of steps`, async () => {
+  test(`${at}: generation stops within a bounded number of random draws`, async () => {
     const g = await gameAt(cols, rows);
     const before = g.randomCalls;
     g.generate(cols, rows);
     const n = cols * rows;
-    // The loop ended normally, not at its 100,000,000-step safety cap.
-    assert.equal(g.state.running, false);
-    assert.equal(g.state.history.length, 0);
-    assert.ok(g.state.maze.every((c) => c.visited));
     // Each step carves one passage or retires one cell: 2n - 1 steps, using at
-    // most three random numbers each, plus four to set up.
-    assert.ok(g.randomCalls - before <= 4 + 3 * (2 * n - 1), `${at} used ${g.randomCalls - before} random numbers`);
+    // most three random numbers each, plus three to set up.
+    assert.ok(g.randomCalls - before <= 3 + 3 * (2 * n - 1), `${at} used ${g.randomCalls - before} random numbers`);
+    assertPerfectMaze(assert, g.state.maze, cols, rows);
   });
 
   // Every move redraws the whole maze, so a full tour of 50x50 takes ~15 s.
@@ -75,18 +66,18 @@ for (const [cols, rows] of GEOMETRIES) {
     const visited = new Set();
     const visit = (cell) => {
       visited.add(cell);
-      for (const [dir, { wall, delta }] of Object.entries(MOVES)) {
+      for (const dir of Object.keys(MOVES)) {
         g.key(ARROWS[dir]);
-        const now = playerCell(g, cols, rows);
-        if (maze[cell][wall] !== false) {
-          assert.equal(now.index, cell, `${at} ${dir} from ${cell} should be blocked`);
+        const now = playerCell(g);
+        const target = step(cols, rows, cell, dir);
+        if (target === null || !maze.isLinked(cell, target)) {
+          assert.equal(now, cell, `${at} ${dir} from ${cell} should be blocked`);
           continue;
         }
-        assert.equal(now.index, cell + delta(rows), `${at} ${dir} from ${cell}`);
-        assert.ok(now.x >= 0 && now.x < cols && now.y >= 0 && now.y < rows, `${at} left the grid`);
-        if (!visited.has(now.index)) visit(now.index);
+        assert.equal(now, target, `${at} ${dir} from ${cell}`);
+        if (!visited.has(now)) visit(now);
         g.key(ARROWS[OPPOSITE[dir]]);
-        assert.equal(playerCell(g, cols, rows).index, cell);
+        assert.equal(playerCell(g), cell);
       }
     };
     visit(0);
@@ -97,24 +88,24 @@ for (const [cols, rows] of GEOMETRIES) {
     const stay = await gameAt(cols, rows);
     const route = shortestRoute(stay.state.maze, rows, 0, cols * rows - 1);
     for (const d of route.dirs) stay.key(ARROWS[d]);
-    assert.equal(playerCell(stay, cols, rows).index, cols * rows - 1);
-    assert.equal(stay.state.maze.length, cols * rows);
+    assert.equal(playerCell(stay), cols * rows - 1);
+    assert.equal(stay.state.topology.size, cols * rows);
 
     const next = await gameAt(cols, rows, { autoNew: true });
-    const first = next.state.maze[0];
+    const first = next.state.maze;
     for (const d of shortestRoute(next.state.maze, rows, 0, cols * rows - 1).dirs) next.key(ARROWS[d]);
     // NewMaze rebuilds the cells; the new maze takes its size from the size field.
-    assert.notEqual(next.state.maze[0], first);
+    assert.notEqual(next.state.maze, first);
     const size = Number(next.document.getElementById('display001').value);
     assertPerfectMaze(assert, next.state.maze, size, size);
-    assert.equal(next.state.player.index, 0);
+    assert.equal(next.state.player.cell, 0);
   });
 
   test(`${at}: search from the start highlights the shortest route to the exit`, async () => {
     const g = await gameAt(cols, rows);
     g.click('SearchButton');
     const expected = shortestRoute(g.state.maze, rows, 0, cols * rows - 1);
-    assert.deepEqual([...g.state.activePath.path], expected.cells);
+    assert.deepEqual([...g.state.route], expected.cells);
   });
 }
 
@@ -130,16 +121,18 @@ function captureErrors(g) {
 }
 
 for (const value of ['0', '', '-3', '2.5', 'abc']) {
-  test(`known defect 1: size ${JSON.stringify(value)} throws a TypeError and leaves no maze; Reset at a valid size recovers`, async () => {
+  test(`known defect 1: size ${JSON.stringify(value)} throws a RangeError and keeps the previous maze; Reset at a valid size recovers`, async () => {
     const g = await loadGame();
+    const before = g.state.maze;
     const errors = captureErrors(g);
     g.click('OptionsButton');
     g.document.getElementById('display001').value = value;
     g.click('generateMaze');
     assert.equal(errors.length, 1);
-    assert.ok(errors[0] instanceof g.window.TypeError, String(errors[0]));
-    // 2.5 builds a 3x3 grid of cells but cannot carve it; the others build none.
-    assert.equal(g.state.maze.length, value === '2.5' ? 9 : 0);
+    assert.ok(errors[0] instanceof RangeError, String(errors[0]));
+    // The size is checked before any state changes, so the 5x5 maze stays in play.
+    assert.equal(g.state.maze, before);
+    assert.equal(g.state.width, 5);
     assert.equal(g.document.getElementById('settingsMenu').style.display, 'none');
 
     g.document.getElementById('display001').value = 6;
@@ -155,56 +148,44 @@ test('known defect 2: size 1 makes a single cell that is both start and exit, an
   const before = g.state.maze;
   for (const key of Object.values(ARROWS)) g.key(key);
   assert.equal(g.state.maze, before);
-  assert.equal(g.state.player.index, 0);
+  assert.equal(g.state.player.cell, 0);
 });
 
-// Defects that only show on geometries the UI cannot make yet. They will matter
-// once non-square mazes are supported.
+// Defects 13 and 14 showed only on geometries the UI cannot make yet; 3 and 15
+// were in the old search. The topology-independent model (CAL-1232) fixed them.
 
-test('known defect 13: horizontal moves step player.index by the width, not the height', async () => {
+test('fixed defect 13: horizontal moves step one column on a non-square grid, and search starts there', async () => {
   const cols = 7;
   const rows = 3;
   const g = await gameAt(cols, rows);
-  const errors = captureErrors(g);
-  // Walk to the first cell with an open right wall, then step right.
-  const from = g.state.maze.findIndex((c) => c.right === false);
+  // Walk to the first cell with an open passage to the right, then step right.
+  const from = g.state.topology.cells().find((i) => neighbours(g.state.maze, rows, i).some(([d]) => d === 'RIGHT'));
   for (const d of shortestRoute(g.state.maze, rows, 0, from).dirs) g.key(ARROWS[d]);
-  assert.equal(g.state.player.index, from);
+  assert.equal(playerCell(g), from);
   g.key(ARROWS.RIGHT);
-  // The player is drawn one column right (from + rows), but player.index is from + cols.
-  assert.equal(playerCell(g, cols, rows).index, from + rows);
-  assert.equal(g.state.player.index, from + cols);
-  // Search starts from player.index, so it starts from the wrong cell, or throws
-  // when that index is past the end of the maze.
+  assert.equal(playerCell(g), from + rows);
   g.click('SearchButton');
-  if (from + cols < cols * rows) assert.equal(g.state.activePath.path[0], from + cols);
-  else assert.equal(errors.length, 1);
+  assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, rows, from + rows, cols * rows - 1).cells);
 });
 
-test('known defect 14: with a single row, generation also opens the outer top and bottom walls', async () => {
+test('fixed defect 14: with a single row, generation keeps the outer top and bottom walls closed', async () => {
   const g = await gameAt(6, 1);
-  const { maze } = g.state;
-  // Passages along the row are right, but the up/down checks match the same
-  // neighbour indices (index +/- 1), so the outer walls are opened too.
-  assert.ok(maze.some((c) => c.down === false));
-  assert.ok(maze.some((c) => c.up === false));
-  const start = playerCell(g, 6, 1);
-  if (maze[0].down === false) {
-    g.key(ARROWS.DOWN);
-    assert.equal(playerCell(g, 6, 1).y, start.y + 1);
-  }
+  assertPerfectMaze(assert, g.state.maze, 6, 1);
+  g.key(ARROWS.DOWN);
+  g.key(ARROWS.UP);
+  assert.equal(playerCell(g), 0);
 });
 
-test('known defect 15: search while standing on the exit draws nothing and runs to its 10,000-step cap', async () => {
+test('fixed defect 15: search while standing on the exit highlights just the exit cell', async () => {
   const g = await gameAt(5, 5);
   for (const d of shortestRoute(g.state.maze, 5, 0, 24).dirs) g.key(ARROWS[d]);
-  assert.equal(g.state.player.index, 24);
+  assert.equal(playerCell(g), 24);
   g.click('SearchButton');
-  assert.equal(g.state.activePath.path.length, 0);
+  assert.deepEqual([...g.state.route], [24]);
 });
 
-test('known defect 3: search finds no route once a maze needs more than 10,000 search steps', async () => {
+test('fixed defect 3: search finds the route on large mazes', async () => {
   const g = await gameAt(120, 120);
   g.click('SearchButton');
-  assert.equal(g.state.activePath.path.length, 0);
+  assert.deepEqual([...g.state.route], shortestRoute(g.state.maze, 120, 0, 120 * 120 - 1).cells);
 });
