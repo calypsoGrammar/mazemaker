@@ -1,8 +1,8 @@
 "use strict";
 
-import { squareTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
+import { squareTopology, hexTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer } from './render/index.js';
-import { directionsAt, pickDirection, keyAngle, DirectionPad } from './input/index.js';
+import { directionsAt, pickDirection, keyCommand, DirectionPad } from './input/index.js';
 
 function CalculateVh()
 {
@@ -169,6 +169,7 @@ SearchButton.onclick = function () { Find(); };
 // CUSTOM MENU INPUT
 
 const display001 = document.getElementById("display001");
+const mazeShape = document.getElementById("mazeShape");
 const sizeError = document.getElementById("sizeError");
 sizeError.style.display = 'none';
 
@@ -196,7 +197,13 @@ const renderer = new CanvasRenderer(canvas);
 const MIN_SIZE = 2;
 const MAX_SIZE = 50;
 
+// Shapes the settings offer: the topology for each. A size n maze has n
+// columns and n rows of cells in either shape.
+const SHAPES = Object.freeze({ square: squareTopology, hex: hexTopology });
+
 let width, height, autoNew, increment, factor;
+// The shape in play, a key of SHAPES. New maze and Auto-increment keep it.
+let shape = 'square';
 // topology: the cells and their neighbours. maze: the passages carved through it.
 // geometry: where the topology's cells are drawn.
 let topology = null;
@@ -226,6 +233,7 @@ function SetSettingsOpen(open)
   if(toggleS)
   {
     display001.value = width;
+    mazeShape.value = shape;
     sizeError.style.display = 'none';
     settingsMenu.style.display = '';
   }
@@ -240,6 +248,7 @@ function DefaultSettings()
   display001.min = MIN_SIZE;
   display001.max = MAX_SIZE;
   display001.step = 1;
+  mazeShape.value = 'square';
 
   FitCanvas();
 
@@ -267,7 +276,7 @@ function ParseSize(text)
   return size >= MIN_SIZE && size <= MAX_SIZE ? size : null;
 }
 
-// Generate: applies the typed size and the toggles, closes the panel and makes
+// Generate: applies the typed size, the shape and the toggles, closes the panel and makes
 // a new maze. An invalid size changes nothing and leaves the panel open with
 // a message.
 function GenerateCustomMaze()
@@ -278,9 +287,10 @@ function GenerateCustomMaze()
     sizeError.style.display = '';
     return;
   }
+  const nextShape = Object.hasOwn(SHAPES, mazeShape.value) ? mazeShape.value : shape;
   ReadToggles();
   SetSettingsOpen(false);
-  StartMaze(size, size);
+  StartMaze(size, size, nextShape);
 }
 
 // A new layout at the size in play.
@@ -312,17 +322,19 @@ function ClearCompletion()
   completeBanner.style.display = 'none';
 }
 
-// Makes a new cols x rows maze. The UI only asks for MIN_SIZE to MAX_SIZE
-// squares; any other positive size works too.
-function StartMaze(cols, rows)
+// Makes a new cols x rows maze of `nextShape` (square or hex). The UI only
+// asks for MIN_SIZE to MAX_SIZE on a side; any other positive size works too.
+function StartMaze(cols, rows, nextShape = shape)
 {
+  if(!Object.hasOwn(SHAPES, nextShape)) throw new RangeError(`unknown maze shape ${nextShape}`);
   // Throws a RangeError for a size that is not a positive whole number or has
   // more than MAX_CELLS cells, before any state changes, so the previous maze
   // stays in play.
   if(cols * rows > MAX_CELLS) throw new RangeError(`maze size ${cols}x${rows} is over the limit of ${MAX_CELLS} cells`);
-  const nextTopology = squareTopology(cols, rows);
+  const nextTopology = SHAPES[nextShape](cols, rows);
   const nextMaze = growingTree(nextTopology, { strategy: 'mixed', random: () => Math.random() }).maze;
   topology = nextTopology;
+  shape = nextShape;
   width = cols;
   height = rows;
   maze = nextMaze;
@@ -382,7 +394,8 @@ function FitCanvas()
 
 // Arrow keys and WASD in either case (Shift or Caps Lock) name a visual
 // direction; the adapter turns it into the open passage that way, if any. On a
-// square grid each key takes exactly its own direction.
+// square grid each key takes exactly its own direction. Hex grids add Q and E
+// and the numeric keypad for their six sides (see HEX_KEYS).
 
 document.onkeydown = function(event)
 {
@@ -390,11 +403,11 @@ document.onkeydown = function(event)
   // settings panel while it covers the maze.
   if(event.ctrlKey || event.metaKey || event.altKey) return;
   if(toggleS) return;
-  const angle = keyAngle(event.key);
-  if(angle === undefined) return;
+  const command = keyCommand(event.key, shape);
+  if(command === undefined) return;
   event.preventDefault();
   if(maze === null || player.moving) return;
-  const label = pickDirection(directionsAt(maze, geometry, player.cell), angle);
+  const label = pickDirection(directionsAt(maze, geometry, player.cell), command.angle, { tolerance: command.tolerance });
   if(label !== null) player.Move(label);
 }
 

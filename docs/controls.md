@@ -26,12 +26,32 @@ several outward passages.
 
 ## Keyboard
 
-The arrow keys and WASD, in either case, name an angle (`keyAngle`).
-`pickDirection` picks the open direction nearest that angle, within
-`DEFAULT_TOLERANCE` (60°). If two open directions are equally near, it picks
-nothing. On a square grid every other direction is 90° away, so each key only
-moves its own way, as before. On hex grids, Left and Right fall between two
-diagonals. They move only when exactly one of the two is open.
+`keyCommand(key, kind)` turns a key into `{ angle, tolerance }` for the grid
+in play. `pickDirection` picks the open direction nearest that angle, within
+the tolerance. If two open directions are equally near, it picks nothing.
+
+On square (and triangle and polar) grids, the arrow keys and WASD, in either
+case, name an angle (`keyAngle`) with `DEFAULT_TOLERANCE` (60°). On a square
+grid every other direction is 90° away, so each key only moves its own way,
+as before.
+
+On hex grids (CAL-1240), six-way keys (`HEX_KEYS`) each name one side of the
+hexagon, with `EXACT_TOLERANCE` (30°, half the angle between sides). A key
+moves through its own side only, never through the side next to it:
+
+| Side | Keys |
+|---|---|
+| N | `W`, Up, `8` |
+| NE | `E`, `9`, PageUp |
+| SE | `D`, `3`, PageDown |
+| S | `S`, Down, `2` |
+| SW | `A`, `1`, End |
+| NW | `Q`, `7`, Home |
+
+`Q W E` over `A S D` are laid out like the hexagon's sides, as are `7 8 9`
+over `1 2 3` on the numeric keypad (Home, PageUp, End, PageDown with Num Lock
+off). Left and Right fall between two diagonals, at 60° tolerance. They move
+only when exactly one of the two is open.
 
 ## Pad
 

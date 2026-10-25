@@ -27,7 +27,15 @@
         </div>
 
         <p id="sizeError" role="alert" class="mx-auto text-red-700">Enter a whole number from 2 to 50.</p>
-    
+
+        <div class="mx-auto my-4">
+          <label for="mazeShape" class="mr-8">Shape:</label>
+          <select id="mazeShape" name="mazeShape" class="text-center w-24 rounded border border-black bg-white">
+            <option value="square">Square</option>
+            <option value="hex">Hexagon</option>
+          </select>
+        </div>
+
         <div class="mx-auto my-4">
           <label for="autonew" class="mr-8">Auto-new:</label>
           <input type="checkbox" id="autonew" name="autonew" class='hover:scale-105' checked>

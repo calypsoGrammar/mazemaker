@@ -34,6 +34,7 @@ window.__mm = {
   get route() { return route; },
   get width() { return width; },
   get height() { return height; },
+  get shape() { return shape; },
   get autoNew() { return autoNew; },
   get increment() { return increment; },
   get hideT() { return hideT; },
@@ -168,14 +169,17 @@ export async function loadGame({ seed = 1, innerWidth = 1024, innerHeight = 768,
     // Applies the Auto-new and Auto-increment checkboxes as they are, then
     // runs main.js's StartMaze() at any size, including ones the size field
     // refuses (rectangles, or sides outside 2-50).
-    generate(cols, rows = cols) {
+    // `shape` defaults to the shape in play.
+    generate(cols, rows = cols, shape = undefined) {
       window.__mm.ReadToggles();
-      window.__mm.StartMaze(cols, rows);
+      window.__mm.StartMaze(cols, rows, shape);
     },
-    // Types `size` into the settings and presses Generate, as a player would.
-    generateFromSettings(size) {
+    // Types `size` into the settings, picks `shape` if given, and presses
+    // Generate, as a player would.
+    generateFromSettings(size, shape = undefined) {
       if (document.getElementById('settingsMenu').style.display === 'none') this.click('OptionsButton');
       document.getElementById('display001').value = size;
+      if (shape !== undefined) document.getElementById('mazeShape').value = shape;
       this.click('generateMaze');
     },
   };
