@@ -2,6 +2,7 @@
 
 import { squareTopology, growingTree, shortestPath, corridor, MAX_CELLS } from './maze/index.js';
 import { geometryFor, CanvasRenderer } from './render/index.js';
+import { directionsAt, pickDirection, keyAngle, DirectionPad } from './input/index.js';
 
 function CalculateVh()
 {
@@ -38,7 +39,8 @@ class Player
     return this.run !== null;
   }
 
-  // Moves are ignored while a run is under way.
+  // DIRECTION is a topology label of the player's cell; keys and the pad reach
+  // it through the input adapter. Moves are ignored while a run is under way.
   Move(DIRECTION)
   {
     if(maze === null || this.moving) return;
@@ -177,15 +179,10 @@ const aIncrement = document.getElementById("autoincrement");
 aIncrement.onchange = function () { ReadToggles(); };
 
 // TOUCHPAD CONTROLS
+// One button per direction of the player's cell; only open passages can be
+// chosen. The pad is redrawn with the maze (see UpdatePad).
 
-const upButton = document.getElementById("upButton");
-upButton.onclick = function () { TouchPad('UP'); };
-const downButton = document.getElementById("downButton");
-downButton.onclick = function () { TouchPad('DOWN'); };
-const leftButton = document.getElementById("leftButton");
-leftButton.onclick = function () { TouchPad('LEFT'); };
-const rightButton = document.getElementById("rightButton");
-rightButton.onclick = function () { TouchPad('RIGHT'); };
+const pad = new DirectionPad(document.getElementById("directionPad"), { onSelect: (label) => player.Move(label) });
 
 // GENERAL CANVAS VARIABLES
 
@@ -347,6 +344,17 @@ function Draw()
 {
   if(maze === null) return;
   renderer.render({ maze, geometry, player: player.marker, goal: exitCell, path: route });
+  UpdatePad();
+}
+
+// The pad shows the directions of the cell last reached. It only changes when
+// the cell or the maze does, not on every animation frame.
+let padShows = null;
+function UpdatePad()
+{
+  if(padShows !== null && padShows.maze === maze && padShows.cell === player.cell) return;
+  padShows = { maze, cell: player.cell };
+  pad.update(directionsAt(maze, geometry, player.cell));
 }
 
 // Sizes the canvas to 90% of the smaller of the window width and the game area
@@ -372,13 +380,9 @@ function FitCanvas()
 
 // KEYBOARD
 
-// Arrow keys and WASD in either case (Shift or Caps Lock).
-const KEY_DIRECTIONS = {
-  arrowup: "UP", w: "UP",
-  arrowdown: "DOWN", s: "DOWN",
-  arrowleft: "LEFT", a: "LEFT",
-  arrowright: "RIGHT", d: "RIGHT",
-};
+// Arrow keys and WASD in either case (Shift or Caps Lock) name a visual
+// direction; the adapter turns it into the open passage that way, if any. On a
+// square grid each key takes exactly its own direction.
 
 document.onkeydown = function(event)
 {
@@ -386,20 +390,12 @@ document.onkeydown = function(event)
   // settings panel while it covers the maze.
   if(event.ctrlKey || event.metaKey || event.altKey) return;
   if(toggleS) return;
-  const direction = KEY_DIRECTIONS[String(event.key).toLowerCase()];
-  if(direction === undefined) return;
+  const angle = keyAngle(event.key);
+  if(angle === undefined) return;
   event.preventDefault();
-  player.Move(direction);
-}
-
-// TOUCHPAD
-
-function TouchPad(DIRECTION)
-{
-  if(DIRECTION === "UP") player.Move("UP")
-  else if(DIRECTION === "DOWN") player.Move("DOWN");
-  else if(DIRECTION === "LEFT") player.Move("LEFT");
-  else if(DIRECTION === "RIGHT") player.Move("RIGHT");
+  if(maze === null || player.moving) return;
+  const label = pickDirection(directionsAt(maze, geometry, player.cell), angle);
+  if(label !== null) player.Move(label);
 }
 
 // HIDE TOUCHPAD

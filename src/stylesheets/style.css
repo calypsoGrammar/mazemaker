@@ -21,31 +21,54 @@
   justify-content: center;
 }
 
-#buttonHolder{
+/* The direction pad fills the footer up to a thumb-sized square. Taps on it
+   are never taken as page zoom or scroll gestures. */
+#directionPad{
   height: 100%;
   width: 100%;
   max-width: 300px;
+  max-height: 300px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-#buttonHolder div{
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  height: calc(var(--vh) * 10);
-  max-height: 100px;
+.pad-button{
+  cursor: pointer;
 }
 
-#mid{
-  top: calc(var(--vh) * 10);
+.pad-button circle{
+  fill: white;
+  stroke: black;
+  stroke-width: 1.5;
 }
 
-#bot{
-  top: calc(var(--vh) * 20);
+.pad-button path{
+  fill: none;
+  stroke: black;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.control{
-  height: 95%;
-  width: 95%;
-  max-width: 100px;
-  max-height: 100px;
+.pad-button:active circle{
+  fill: #e5e5e5;
+}
+
+.pad-button:focus{
+  outline: none;
+}
+
+.pad-button:focus-visible circle{
+  stroke-width: 4;
+}
+
+.pad-button[aria-disabled="true"]{
+  cursor: default;
+  opacity: 0.25;
+}
+
+.pad-button[aria-disabled="true"]:active circle{
+  fill: white;
 }
