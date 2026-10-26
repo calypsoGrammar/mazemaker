@@ -1,0 +1,22 @@
+# Publishes an earlier release again (docs/deploy.md, Rolling back). Run it
+# from main: Actions > Rollback > Run workflow, with the tag or commit to
+# restore. The commit is tested and built again exactly as a deploy would be.
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or commit to publish again (v1.0.0 or later)
+        required: true
+        type: string
+
+jobs:
+  pages:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ inputs.ref }}

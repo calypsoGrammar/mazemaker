@@ -21,7 +21,13 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
+      - name: Install Chromium for the browser tests
+        run: npx playwright install --with-deps chromium
       - name: Test
+        env:
+          REQUIRE_BROWSER: '1'
         run: npm test
       - name: Build
         run: npm run build
+      - name: Check the build loads under /mazemaker/
+        run: npm run check:dist

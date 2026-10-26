@@ -1,0 +1,89 @@
+# Builds, tests and publishes one commit of the site to GitHub Pages. Called
+# by deploy.yml (every push to main) and rollback.yml (an earlier tag or
+# commit, by hand); see docs/deploy.md. Pages must have its source set to
+# "GitHub Actions" in the repository settings.
+name: Publish to GitHub Pages
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: The tag, branch or commit to publish.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # The checks come from the workflow's own commit, so an older release
+      # is checked the same way as a new one.
+      - name: Check out the workflow's commit
+        uses: actions/checkout@v4
+        with:
+          path: tools
+      - name: Check out the commit to publish
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          path: site
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install dependencies
+        working-directory: site
+        run: npm ci --no-audit --no-fund
+      - name: Install Chromium for the browser tests
+        working-directory: site
+        run: |
+          if [ -d node_modules/playwright ]; then
+            npx playwright install --with-deps chromium
+          else
+            echo "This commit predates the browser tests in CI; skipping Chromium."
+          fi
+      - name: Test
+        working-directory: site
+        env:
+          REQUIRE_BROWSER: '1'
+        run: npm test
+      - name: Build
+        working-directory: site
+        run: npm run build
+      - name: Check the build loads under /mazemaker/
+        run: node tools/scripts/check-dist.mjs site/dist
+      - name: Record what is published
+        working-directory: site
+        env:
+          REF: ${{ inputs.ref }}
+        run: echo "Publishing \`$REF\` ($(git rev-parse HEAD)) to https://calypsogrammar.github.io/mazemaker/" >> "$GITHUB_STEP_SUMMARY"
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # One publish at a time; a queued one waits rather than cancelling a
+    # deploy halfway.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

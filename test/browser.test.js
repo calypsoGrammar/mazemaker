@@ -4,12 +4,9 @@
 // Unlike the jsdom tests, the stylesheet is applied and laid out, so sizes,
 // overlaps and scrolling are measured, not worked out.
 //
-// Playwright is not a dependency of the project. The test looks for it in
-// PLAYWRIGHT_MODULE, then a global install (/usr/local/lib/node_modules),
-// then node_modules, with browsers in PLAYWRIGHT_BROWSERS_PATH (default
-// /usr/local/share/ms-playwright when it exists). Without Playwright or a
-// Chromium it can launch, every test here is skipped, so `npm test` still
-// passes where there is no browser.
+// Playwright and Chromium are found as test/playwright.js describes; without
+// them every test here is skipped, so `npm test` still passes where there is
+// no browser.
 //
 // The page is served by Vite's dev server, so it is the page as written, with
 // Tailwind applied. main.js gets a read-only window.__mm appended as it is
@@ -18,38 +15,11 @@
 
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { launch } from './playwright.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const GLOBAL_MODULE = '/usr/local/lib/node_modules/playwright/index.mjs';
-const GLOBAL_BROWSERS = '/usr/local/share/ms-playwright';
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync(GLOBAL_BROWSERS)) process.env.PLAYWRIGHT_BROWSERS_PATH = GLOBAL_BROWSERS;
-
-async function findChromium() {
-  const candidates = [process.env.PLAYWRIGHT_MODULE, GLOBAL_MODULE, 'playwright', 'playwright-core'].filter(Boolean);
-  for (const name of candidates) {
-    if (name.startsWith('/') && !existsSync(name)) continue;
-    try {
-      const module = await import(name);
-      const chromium = module.chromium ?? module.default?.chromium;
-      if (chromium) return chromium;
-    } catch { /* try the next */ }
-  }
-  return null;
-}
-
-let browser = null;
-let skip = 'Playwright is not installed';
-const chromium = await findChromium();
-if (chromium) {
-  try {
-    browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined });
-    skip = false;
-  } catch (error) {
-    skip = `Chromium did not launch: ${String(error.message).split('\n')[0]}`;
-  }
-}
+const { browser, skip } = await launch();
 
 let server = null;
 let base = null;
