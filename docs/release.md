@@ -9,11 +9,14 @@ files, both run by `npm test`:
   touch and media queries.
 - `test/browser.test.js` runs in headless Chromium through Playwright, with
   touch emulation, mobile viewports, rotation, the keyboard and emulated
-  reduced motion. It measures the laid-out page. Playwright is not a
-  dependency: the test uses `PLAYWRIGHT_MODULE`, a global install
-  (`/usr/local/lib/node_modules/playwright`) or one in `node_modules`, with
-  `PLAYWRIGHT_BROWSERS_PATH` (default `/usr/local/share/ms-playwright`) or
-  `CHROMIUM_PATH` for the browser. Without them it is skipped, as in CI today.
+  reduced motion. It measures the laid-out page. Playwright is found as
+  `test/playwright.js` describes: `PLAYWRIGHT_MODULE`, a global install
+  (`/usr/local/lib/node_modules/playwright`) or the `playwright` dev
+  dependency, with `PLAYWRIGHT_BROWSERS_PATH` (default
+  `/usr/local/share/ms-playwright`) or `CHROMIUM_PATH` for the browser.
+  Without a browser it is skipped. Since CAL-1245, CI and the Pages deploy
+  install Chromium and set `REQUIRE_BROWSER=1`, so there it must run
+  (`docs/deploy.md`).
 
 For CAL-1244 the browser tests were run in headless Chromium (the
 `@sparticuz/chromium` build, through `playwright-core`), and all passed. Run

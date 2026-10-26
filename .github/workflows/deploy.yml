@@ -1,0 +1,18 @@
+# Publishes main to https://calypsogrammar.github.io/mazemaker/ after the tests
+# and build pass (docs/deploy.md).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pages:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
+    with:
+      ref: ${{ github.sha }}
