@@ -4,9 +4,9 @@
 # Archon never auto-merges a change to it. Every key is described in
 # archon-v3's docs/workflow-reference.md.
 tracker:
-  kind: linear
+  kind: chronology
   provider:
-    # Linear project "Maze Maker".
+    # Work Registry project "Maze Maker".
     project_id: "2a0e01db-3714-4a8b-b2ae-982598a83ffb"
 hooks:
   # Each attempt starts from a fresh checkout; install dependencies so the
@@ -79,7 +79,7 @@ archon:
     default: opus
     fallback: sol
 ---
-You are working on Maze Maker, Linear issue {{ issue.identifier }}: {{ issue.title }}.
+You are working on Maze Maker, issue {{ issue.identifier }}: {{ issue.title }}.
 {% if attempt %}
 This is attempt {{ attempt }}. Earlier attempts were discarded, and this workspace is a fresh checkout.
 {% endif %}
