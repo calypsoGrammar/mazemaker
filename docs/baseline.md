@@ -213,7 +213,9 @@ CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
     `rightIndex` uses `<=` where `<` is meant, but a wall always blocks that move.
     None of this affects gameplay today.
     *Since CAL-1232:* `mousePos`, `t2`, `currentPath`, the `visited` fill and
-    `rightIndex` are gone with the old cell model. `iUp`… and `FlipPad()` remain.
+    `rightIndex` are gone with the old cell model.
+    *Since CAL-1417:* `iUp`/`iLeft`/`iRight`/`iDown`, `FlipPad()` and the four
+    unused chevron SVGs are gone too. Nothing in this defect remains.
 12. **The README production link may be stale.** See the URL section above.
 
 Found in CAL-1231 by running the generator on rectangular grids (the code keeps
