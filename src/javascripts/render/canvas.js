@@ -69,6 +69,12 @@ export class CanvasRenderer
     return this.#viewport;
   }
 
+  // False while the canvas has no room (no viewport can be made).
+  get drawable()
+  {
+    return this.#width > 0 && this.#height > 0;
+  }
+
   viewportFor(geometry)
   {
     return new Viewport({

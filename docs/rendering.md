@@ -100,6 +100,12 @@ change, calls `renderer.setView` and redraws. Gestures never call
 pans. The canvas has `touch-action: none` so the page does not scroll or zoom
 under a gesture.
 
+While zoomed, a move keeps the player in view (CAL-1414): `main.js` calls
+`Viewport.reveal(point, margin)` on every animation frame of a run (and once
+for an unanimated move), which pans the least needed to keep the player's
+centre 24 CSS pixels inside the canvas, within the pan limits. The zoom is
+never changed, and a player already in view causes no pan.
+
 The **Fit maze to screen** button (four corners, in the toolbar; `docs/interface.md`)
 sets zoom 1 and no pan: the maze is centred and fitted. A new maze also starts
 fitted. Restart keeps the view. Resizing keeps the zoom and brings the pan

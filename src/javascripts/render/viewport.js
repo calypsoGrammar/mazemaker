@@ -86,6 +86,19 @@ export class Viewport
     return this.with({ panX: this.panX + dx, panY: this.panY + dy }).clamped();
   }
 
+  // Pans the least needed to bring `point` (world) within `margin` CSS pixels
+  // of the canvas's edges, within the limits; unchanged if it is already there.
+  reveal(point, margin = 0)
+  {
+    const { x, y } = this.toScreen(point);
+    const mx = Math.min(margin, this.width / 2);
+    const my = Math.min(margin, this.height / 2);
+    const shift = (v, size, m) => (v < m ? m - v : v > size - m ? size - m - v : 0);
+    const dx = shift(x, this.width, mx);
+    const dy = shift(y, this.height, my);
+    return dx === 0 && dy === 0 ? this : this.panBy(dx, dy);
+  }
+
   // World point -> CSS pixels from the canvas's top-left corner.
   toScreen({ x, y })
   {

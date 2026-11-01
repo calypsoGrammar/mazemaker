@@ -543,7 +543,9 @@ test('viewport: zoomed in, the circle is drawn through the zoomed view and keys 
     }
     assert.ok(++presses <= route.length);
     const now = g.state.renderer.viewport;
-    assert.deepEqual([now.zoom, now.panX, now.panY], [v.zoom, v.panX, v.panY], 'moving keeps the view');
+    assert.equal(now.zoom, v.zoom, 'moving keeps the zoom');
+    const p = now.toScreen(geometry.centre(g.state.player.cell));
+    assert.ok(p.x >= 0 && p.x <= now.width && p.y >= 0 && p.y <= now.height, 'the view follows the player');
   }
   assert.equal(g.state.completed, true);
 });

@@ -56,6 +56,7 @@ class Player
     {
       this.cell = cells.at(-1);
       UpdateRoute();
+      FollowPlayer();
       Draw();
       this.CheckWin();
       return;
@@ -83,6 +84,7 @@ class Player
       if(run.cells.length === 0)
       {
         this.run = null;
+        FollowPlayer();
         Draw();
         this.CheckWin();
         return;
@@ -91,6 +93,7 @@ class Player
       if(time - run.start >= STEP_MS) run.start = time;
       run.progress = (time - run.start) / STEP_MS;
     }
+    FollowPlayer();
     Draw();
     this.frame = requestAnimationFrame((t) => this.Animate(t));
   }
@@ -407,6 +410,27 @@ function ResetView()
 
 // DRAW
 // The renderer only reads the game state; every change of state redraws.
+
+// While zoomed, pans the view just enough to keep the player (or the step
+// under way) on screen. Only moves call this, so panning by hand still works.
+const FOLLOW_MARGIN = 24;
+function FollowPlayer()
+{
+  if(maze === null || geometry === null || !renderer.drawable) return;
+  const marker = player.marker;
+  let point;
+  if(typeof marker === 'object')
+  {
+    const a = geometry.centre(marker.from);
+    const b = geometry.centre(marker.to);
+    const t = Math.min(Math.max(marker.progress, 0), 1);
+    point = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+  }
+  else point = geometry.centre(marker);
+  const view = renderer.viewportFor(geometry);
+  const moved = view.reveal(point, FOLLOW_MARGIN);
+  if(moved !== view) renderer.setView(moved);
+}
 
 function Draw()
 {

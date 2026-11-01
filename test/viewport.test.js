@@ -5,8 +5,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Viewport } from '../src/javascripts/render/index.js';
-import { loadGame } from './harness.js';
+import { loadGame, followRoute, shortestRoute } from './harness.js';
 
+const ARROWS = { UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' };
 const near = (p, q, eps = 1e-6) => Math.abs(p.x - q.x) < eps && Math.abs(p.y - q.y) < eps;
 
 // jsdom has no PointerEvent; a MouseEvent of the same type carries the fields.
@@ -121,6 +122,43 @@ test('viewport: pan is limited so the maze keeps filling the canvas', () => {
   assert.equal(v.with({ zoom: 50, panX: 1e9 }).clamped().zoom, 10);
 });
 
+test('viewport: reveal pans the least needed and leaves a visible point alone', () => {
+  const v = new Viewport({ bounds, width: 300, height: 300 }).with({ zoom: 4 });
+  const inside = v.toWorld({ x: 150, y: 150 });
+  assert.equal(v.reveal(inside, 20), v);
+  const off = v.toWorld({ x: 350, y: 150 });
+  const shown = v.reveal(off, 20);
+  assert.ok(near(shown.toScreen(off), { x: 280, y: 150 }));
+  assert.equal(shown.panY, v.panY);
+  assert.ok(Math.abs(shown.panX) <= shown.panLimits.x);
+  // At fit there is nothing to pan.
+  const fit = new Viewport({ bounds, width: 300, height: 300 });
+  assert.equal(fit.reveal({ x: 40, y: 40 }, 20).panX + 0, 0);
+});
+
+// FOLLOWING THE PLAYER
+
+for (const reducedMotion of [true, false]) {
+  test(`follow: the zoomed view keeps the player on screen (reduced motion ${reducedMotion})`, async () => {
+    const g = await bigGame({ reducedMotion });
+    wheel(g, { x: 200, y: 200, deltaY: -1000 });
+    const { state } = g;
+    assert.ok(state.renderer.viewport.zoom > 1.5);
+    const route = shortestRoute(state.maze, state.height, state.player.cell, state.exitCell).cells;
+    let checked = 0;
+    followRoute(g, route, (dir) => {
+      const trail = g.key(ARROWS[dir]);
+      const v = state.renderer.viewport;
+      const p = v.toScreen(state.geometry.centre(state.player.cell));
+      assert.ok(p.x >= 0 && p.x <= v.width && p.y >= 0 && p.y <= v.height, `player at ${p.x},${p.y} is on screen`);
+      checked++;
+      return trail;
+    });
+    assert.ok(checked > 0);
+    assert.ok(state.renderer.viewport.zoom > 1.5, 'zoom is kept');
+  });
+}
+
 // DESKTOP
 
 test('desktop: the wheel zooms about the pointer, without moving the player', async () => {
@@ -167,7 +205,7 @@ test('desktop: a mouse drag pans the zoomed maze; other buttons do not', async (
   assertStateKept(g, before, 'mouse drag');
 });
 
-test('desktop: the keyboard still moves the player while zoomed, and the view stays', async () => {
+test('desktop: the keyboard still moves the player while zoomed, and the view follows it', async () => {
   const g = await bigGame();
   wheel(g, { x: 50, y: 60, deltaY: -400 });
   const v = g.state.renderer.viewport;
@@ -175,7 +213,6 @@ test('desktop: the keyboard still moves the player while zoomed, and the view st
   const trail = g.key({ UP: 'ArrowUp', DOWN: 'ArrowDown', LEFT: 'ArrowLeft', RIGHT: 'ArrowRight' }[first.label]);
   assert.equal(trail[1], first.cell);
   assert.equal(g.state.renderer.viewport.zoom, v.zoom);
-  assert.equal(g.state.renderer.viewport.panX, v.panX);
 });
 
 test('desktop: Fit maze to screen centres and fits the maze; a new maze starts fitted', async () => {
@@ -247,7 +284,7 @@ test('mobile: canvas touches are not passed on to the page', async () => {
   dispatch(g, g.state.canvas, 'pointerup', { x: 20, y: 10 });
 });
 
-test('mobile: the direction pad moves the player and never pans', async () => {
+test('mobile: the direction pad moves the player and never pans by itself', async () => {
   const g = await bigGame(PHONE);
   pinch(g, [{ x: 140, y: 140 }, { x: 160, y: 140 }], [{ x: 100, y: 140 }, { x: 200, y: 140 }]);
   const v = g.state.renderer.viewport;
@@ -260,7 +297,9 @@ test('mobile: the direction pad moves the player and never pans', async () => {
   const trail = g.settle();
   assert.equal(trail[1], first.cell, 'the tap moved the player');
   const after = g.state.renderer.viewport;
-  assert.deepEqual([after.zoom, after.panX, after.panY], [v.zoom, v.panX, v.panY]);
+  assert.equal(after.zoom, v.zoom);
+  const p = after.toScreen(g.state.geometry.centre(g.state.player.cell));
+  assert.ok(p.x >= 0 && p.x <= after.width && p.y >= 0 && p.y <= after.height, 'the view followed the player');
 });
 
 test('mobile: rotating keeps the zoom, the maze and the player; the pan stays in bounds', async () => {
