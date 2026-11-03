@@ -206,7 +206,10 @@ CAL-1232 (`docs/model.md`) later fixed 3, 13, 14 and 15, and changed 1. CAL-1235
 10. **Accessibility.** The header and D-pad buttons are icon-only `<img>` elements
     with no `alt` text or `aria-label`. The maze has no text alternative.
     *Since CAL-1238:* the pad buttons have `aria-label`s, and so does the
-    show/hide-controls button. The Options and Search buttons still have none.
+    show/hide-controls button.
+    *Since CAL-1418:* the Options ("Settings") and Search ("Show route")
+    buttons are named too (`aria-label` and `title`); this was already the case
+    on `main`. The maze still has no text alternative.
 11. **Dead code.** `iUp`/`iLeft`/`iRight`/`iDown` look up elements that do not exist,
     `FlipPad()` references an undefined `flipState` and is never called, and
     `mousePos`, `t2`, `currentPath` and the `visited` fill in `DrawMaze` do nothing.
