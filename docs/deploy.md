@@ -103,3 +103,11 @@ The owner chose option A: a GitHub Actions workflow builds main and deploys
 rollback re-runs the deploy for a known-good commit. The workflows above
 already do this, so CAL-1649 needed no code change. The Pages source is a
 repository setting; a person confirms it is set to GitHub Actions.
+
+## Decision record (CAL-1503)
+
+CAL-1503 asked for the Pages source to be set to GitHub Actions, the first live
+deploy to be checked, and `v1.0.0` to be tagged. The owner closed it as already
+covered by "One-time repository setup", "Releasing" and "Production check"
+above, so it needed no code change. The three steps are still done by a person
+with repository access, not by CI.
