@@ -95,3 +95,11 @@ If Actions itself is unavailable, build the tag locally (`npm ci && npm test &&
 npm run build && npm run check:dist`). Then switch Pages to "Deploy from a
 branch" and push `dist/` to a `gh-pages` branch. Switch the source back to
 GitHub Actions afterwards.
+
+## Decision record (CAL-1378 / CAL-1649)
+
+The owner chose option A: a GitHub Actions workflow builds main and deploys
+`dist/` with `actions/deploy-pages`, the Pages source is GitHub Actions, and a
+rollback re-runs the deploy for a known-good commit. The workflows above
+already do this, so CAL-1649 needed no code change. The Pages source is a
+repository setting; a person confirms it is set to GitHub Actions.
