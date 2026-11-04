@@ -99,7 +99,7 @@ test('pages: every file the build refers to is in it, under /mazemaker/', () => 
   assert.deepEqual(checkDist(dist), []);
   const html = readFileSync(join(dist, 'index.html'), 'utf8');
   assert.match(html, /<script type="module"[^>]*src="\/mazemaker\/assets\/[^"]+\.js"/);
-  assert.match(html, /<link rel="stylesheet" href="\/mazemaker\/assets\/[^"]+\.css"/);
+  assert.match(html, /<link rel="stylesheet"[^>]*href="\/mazemaker\/assets\/[^"]+\.css"/);
   assert.match(html, /<link rel="icon" href="\/mazemaker\/assets\/[^"]+"/);
 });
 
