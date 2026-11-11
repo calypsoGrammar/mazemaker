@@ -72,12 +72,18 @@ archon:
   merge:
     # A person merges. Switch to auto once main requires a CI check on
     # up-to-date branches and the repository allows auto-merge.
-    policy: auto
+    # Manual for the chain test: every arm is merged by hand.
+    policy: manual
   models:
     # Profiles come from the service's shared model catalogue (archon-v3
     # docs/operations.md, Models); a Model label on an issue picks another.
     default: opus
     fallback: sol
+  # Chain test, November 2026 (context and re-planning): the same five "Commands" tickets run in
+  # Game of Life, Boids, L-Systems and Maze Maker with each combination of these.
+  chain:
+    context: true
+    replan: true
 ---
 You are working on Maze Maker, issue {{ issue.identifier }}: {{ issue.title }}.
 {% if attempt %}
