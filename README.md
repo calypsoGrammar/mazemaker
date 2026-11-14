@@ -70,8 +70,10 @@ instead. `docs/release.md` has the release review and the manual pass.
 
 ## Deployment and rollback
 
-GitHub Actions tests, builds and publishes main to GitHub Pages on every push
-(`.github/workflows/deploy.yml`). Nothing is published unless the tests, the
-build and the `/mazemaker/` check pass. To put an earlier release back, run
-the **Rollback** workflow with its tag or commit. `docs/deploy.md` covers the
+Publishing is by hand: Actions → **deploy** → Run workflow (the shared
+`calypsoGrammar/deploy-workflows` Pages deploy). Merging to main does not
+publish, and only a commit on main whose CI passed (tests, build and the
+`/mazemaker/` check) can be published. To put an earlier release back, run the
+same workflow with its tag or commit as `ref`, or tick `rollback` to publish
+the `stable` tag. `docs/deploy.md` covers the
 one-time Pages setup, releasing, the production check and rollback.
