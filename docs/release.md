@@ -14,9 +14,9 @@ files, both run by `npm test`:
   (`/usr/local/lib/node_modules/playwright`) or the `playwright` dev
   dependency, with `PLAYWRIGHT_BROWSERS_PATH` (default
   `/usr/local/share/ms-playwright`) or `CHROMIUM_PATH` for the browser.
-  Without a browser it is skipped. Since CAL-1245, CI and the Pages deploy
-  install Chromium and set `REQUIRE_BROWSER=1`, so there it must run
-  (`docs/deploy.md`).
+  Without a browser it is skipped. CI installs Chromium and sets
+  `REQUIRE_BROWSER=1`, so there it must run, and the Pages deploy only
+  publishes a commit whose CI passed (`docs/deploy.md`).
 
 For CAL-1244 the browser tests were run in headless Chromium (the
 `@sparticuz/chromium` build, through `playwright-core`), and all passed. Run
