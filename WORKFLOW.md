@@ -19,10 +19,12 @@ agent:
 archon:
   requires: [node26]
   verify:
+    status: build
     setup:
       - npm ci --no-audit --no-fund
     commands:
       - npm run build
+      - spiderweb refresh . --log-level warn > /dev/null && spiderweb verify . --stage merge
   preview:
     # How to run the app: screenshots of the reviewed commit for Archon's
     # evidence (archon-v3 docs/workflow-reference.md, Preview evidence), and a
