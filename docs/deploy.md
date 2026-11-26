@@ -1,5 +1,7 @@
 # Deployment and rollback (CAL-1245 / MM-V1-16)
 
+> **Moved to Cloudflare Pages (26 November 2026).** The site is now at <https://mazemaker.calypsogrammar.com/>, published by `.github/workflows/deploy.yml` through the shared `cloudflare-pages.yml` in `calypsoGrammar/deploy-workflows` (the same manual, green-commits-only, rollback-by-`ref` contract). It builds with `--base=/` because the site is served at the root of its subdomain. The GitHub Pages settings, URLs and checks below are kept as history. `npm run check:dist` still checks the `/mazemaker/` build in CI; the published build differs only in its base.
+
 The site is published to GitHub Pages at
 <https://calypsogrammar.github.io/mazemaker/>. It is a project site, so every
 file is served under `/mazemaker/`. `vite.config.js` sets `base: '/mazemaker/'`,

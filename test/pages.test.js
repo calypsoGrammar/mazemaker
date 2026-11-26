@@ -92,7 +92,7 @@ test('pages: the site is built for the /mazemaker/ path', () => {
   assert.equal(config.base, '/mazemaker/');
   assert.equal(BASE, config.base);
   const readme = readFileSync(join(root, 'README.md'), 'utf8');
-  assert.match(readme, /https:\/\/calypsogrammar\.github\.io\/mazemaker\//, 'the README links the production URL');
+  assert.match(readme, /https:\/\/mazemaker\.calypsogrammar\.com\//, 'the README links the production URL');
 });
 
 test('pages: every file the build refers to is in it, under /mazemaker/', () => {

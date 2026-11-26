@@ -1,7 +1,7 @@
-# [Maze Maker](https://calypsogrammar.github.io/mazemaker/)
+# [Maze Maker](https://mazemaker.calypsogrammar.com/)
 
 A maze generator and pathfinder that runs in the browser:
-<https://calypsogrammar.github.io/mazemaker/>.
+<https://mazemaker.calypsogrammar.com/>.
 
 ## Version 1
 
@@ -71,9 +71,11 @@ instead. `docs/release.md` has the release review and the manual pass.
 ## Deployment and rollback
 
 Publishing is by hand: Actions → **deploy** → Run workflow (the shared
-`calypsoGrammar/deploy-workflows` Pages deploy). Merging to main does not
+`calypsoGrammar/deploy-workflows` Cloudflare Pages deploy, building with
+`--base=/` for the subdomain). Merging to main does not
 publish, and only a commit on main whose CI passed (tests, build and the
 `/mazemaker/` check) can be published. To put an earlier release back, run the
 same workflow with its tag or commit as `ref`, or tick `rollback` to publish
-the `stable` tag. `docs/deploy.md` covers the
-one-time Pages setup, releasing, the production check and rollback.
+the `stable` tag. `docs/deploy.md` covers releasing, the production check and rollback. The
+repository needs the `CLOUDFLARE_API_TOKEN` secret and the
+`CLOUDFLARE_ACCOUNT_ID` variable.
